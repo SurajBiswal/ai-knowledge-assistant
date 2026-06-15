@@ -1,26 +1,12 @@
-import google.generativeai as genai
-
-from app.core.config import settings
-
-
-# Defer model initialization until first use (don't initialize at import time)
-model = None
+import app.graph.state as chatState
+from app.services.gemini_service import generate_response
 
 
-def _get_model():
-    global model
-    if model is None:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.5-flash")
-    return model
 
-
-def chatbot_node(state):
-    user_message = state["message"]
+def chatbot_node(state:chatState):
     
-    model_instance = _get_model()
-    response = model_instance.generate_content(user_message)
+    response = generate_response(state["message"])
 
     return {
-        "response": response.text
+        "response": response
     }

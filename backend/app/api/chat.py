@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from fastapi import APIRouter
-
+from fastapi import HTTPException
 from app.graph.graph import graph
 
 
@@ -10,9 +10,18 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     message: str
 
+class ChatResponse(BaseModel):
+    response: str   
 
-@router.post("/chat")
+
+@router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
+
+    if not request.message.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Message cannot be empty"
+        )
 
     result = graph.invoke(
         {
@@ -20,6 +29,4 @@ def chat(request: ChatRequest):
         }
     )
 
-    return {
-        "response": result["response"]
-    }
+    return ChatResponse(response=result["response"])
