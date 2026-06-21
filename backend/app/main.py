@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.api.chat import router as chat_router
+from app.api.conversations.router import (
+    router as conversations_router,
+)
 
 app = FastAPI(
     title="AI Knowledge Assistant"
@@ -21,4 +22,4 @@ def health():
         "status": "healthy"
     }
 
-app.include_router(chat_router)
+app.include_router(conversations_router)

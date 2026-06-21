@@ -3,18 +3,17 @@ import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import ChatWindow from "../components/chat/ChatWindow";
 import ChatInput from "../components/chat/ChatInput";
-import { sendMessage } from "../services/chatService";
+import {
+  createConversation,
+  getConversations,
+  getMessages,
+  sendMessage,
+} from "../services/conversationService";
+import { useEffect } from "react";
+
+
 
 let nextId = 1;
-const uid = () => String(nextId++);
-
-function timestamp() {
-  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function todayLabel() {
-  return new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
-}
 
 /** Inline error banner shown inside the chat stream */
 function ErrorBanner({ message, onDismiss }) {
@@ -49,6 +48,8 @@ function ErrorBanner({ message, onDismiss }) {
  */
 export default function ChatPage() {
   const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);       // { message: string } | null
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -60,37 +61,106 @@ export default function ChatPage() {
     setMessages((prev) => [
       ...prev,
       {
-        id: uid(),
+        id: crypto.randomUUID(),
         role,
         content,
-        time: timestamp(),
-        date: todayLabel(),
       },
     ]);
   }, []);
 
-  const handleSend = useCallback(async (text) => {
-    if (pendingRef.current) return;
-    pendingRef.current = true;
+  const handleSend = useCallback(
+    async (text) => {
+      if (!activeConversationId) {
+        return;
+      }
 
-    setError(null);
-    appendMessage("user", text);
-    setIsLoading(true);
+      appendMessage(
+        "user",
+        text
+      );
 
+      setIsLoading(true);
+
+      try {
+        await sendMessage(
+          activeConversationId,
+          text
+        );
+
+        await selectConversation(
+          activeConversationId
+        );
+      } catch (err) {
+        setError({
+          message:
+            err?.message ??
+            "Failed to send message",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [activeConversationId, appendMessage]
+  );
+
+  const loadConversations = async () => {
     try {
-      const response = await sendMessage(text);
-      appendMessage("assistant", response);
-    } catch (err) {
-      setError({
-        message:
-          err?.message ??
-          "Something went wrong. Please check your connection and try again.",
-      });
-    } finally {
-      setIsLoading(false);
-      pendingRef.current = false;
+      const data = await getConversations();
+
+      setConversations(data);
+
+      if (data.length > 0) {
+        await selectConversation(data[0].id);
+      }
+    } catch (error) {
+      console.error(error);
     }
-  }, [appendMessage]);
+  };
+
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  const selectConversation = async (
+    conversationId
+  ) => {
+    setActiveConversationId(
+      conversationId
+    );
+
+    const messages =
+      await getMessages(conversationId);
+
+    setMessages(
+      messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        time: "",
+        date: "",
+      }))
+    );
+  };
+
+  const createNewConversation = async () => {
+    try {
+      const conversation =
+        await createConversation(
+          "New Chat"
+        );
+
+      setConversations((prev) => [
+        conversation,
+        ...prev,
+      ]);
+
+      await selectConversation(
+        conversation.id
+      );
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-white font-sans">
@@ -98,6 +168,16 @@ export default function ChatPage() {
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        conversations={conversations}
+        activeConversationId={
+          activeConversationId
+        }
+        onSelectConversation={
+          selectConversation
+        }
+        onNewConversation={
+          createNewConversation
+        }
       />
 
       {/* Main column */}
