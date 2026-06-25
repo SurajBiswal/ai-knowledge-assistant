@@ -47,7 +47,7 @@ function ErrorBanner({ message, onDismiss }) {
  * Owns all conversation state and orchestrates:
  *   Sidebar → Header → ChatWindow → ChatInput → chatService
  */
-export default function ChatPage() {
+export default function ChatPage({ user, onLogout }) {
   const [messages, setMessages] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
@@ -195,6 +195,8 @@ export default function ChatPage() {
         onNewConversation={
           createNewConversation
         }
+        user={user}
+        onLogout={onLogout}
       />
 
       {/* Main column */}

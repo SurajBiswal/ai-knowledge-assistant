@@ -23,6 +23,8 @@ export default function Sidebar({
   activeConversationId,
   onSelectConversation,
   onNewConversation,
+  user,
+  onLogout,
 }) {
 
   return (
@@ -146,18 +148,26 @@ export default function Sidebar({
 
         {/* User profile */}
         <div className="px-3 py-3 border-t border-slate-200">
-          <button className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-100 transition-colors duration-150">
+          <div className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-100 transition-colors duration-150">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-bold text-white">JD</span>
+              <span className="text-xs font-bold text-white">{(user && user.name) ? user.name.split(" ").map(n=>n[0]).slice(0,2).join("") : "JD"}</span>
             </div>
             <div className="flex-1 text-left min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">Jane Doe</p>
-              <p className="text-xs text-slate-400 truncate">Pro plan</p>
+              <p className="text-sm font-medium text-slate-800 truncate">{user?.name ?? "Jane Doe"}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.email ?? "Pro plan"}</p>
             </div>
-            <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { if (typeof onLogout === 'function') onLogout(); }}
+                className="text-xs text-slate-500 hover:text-slate-700"
+              >
+                Logout
+              </button>
+              <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
       </aside>
     </>
