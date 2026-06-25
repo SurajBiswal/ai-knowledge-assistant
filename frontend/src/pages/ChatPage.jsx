@@ -8,6 +8,7 @@ import {
   getConversations,
   getMessages,
   sendMessage,
+  sendMessageStream, // STREAMING: Import the streaming function
 } from "../services/conversationService";
 import { useEffect } from "react";
 
@@ -74,21 +75,39 @@ export default function ChatPage() {
         return;
       }
 
-      appendMessage(
-        "user",
-        text
-      );
+      // STREAMING: Add user message to UI immediately
+      const userMessageId = crypto.randomUUID();
+      appendMessage("user", text);
 
-      setIsLoading(true);
+      // STREAMING: Create empty assistant message that will be updated with chunks
+      const assistantMessageId = crypto.randomUUID();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          content: "", // STREAMING: Empty initially, will be filled with chunks
+        },
+      ]);
+
+      setIsLoading(false); // STREAMING: No loading spinner - message updates in real-time
 
       try {
-        await sendMessage(
+        // STREAMING: Use streaming endpoint instead of waiting for full response
+        await sendMessageStream(
           activeConversationId,
-          text
-        );
-
-        await selectConversation(
-          activeConversationId
+          text,
+          // STREAMING: Callback that runs for each chunk received from backend
+          (chunk) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? // STREAMING: Append chunk to existing assistant message
+                    { ...msg, content: msg.content + chunk }
+                  : msg
+              )
+            );
+          }
         );
       } catch (err) {
         setError({
@@ -96,8 +115,6 @@ export default function ChatPage() {
             err?.message ??
             "Failed to send message",
         });
-      } finally {
-        setIsLoading(false);
       }
     },
     [activeConversationId, appendMessage]

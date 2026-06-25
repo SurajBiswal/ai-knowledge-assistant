@@ -27,6 +27,11 @@ from fastapi.responses import StreamingResponse
 import asyncio
 from app.services.gemini_service import generate_stream_response
 
+from app.core.dependencies import (
+    get_current_user,
+)
+
+from app.models.user import User
 
 def get_chat_service(
     db: Session = Depends(get_db),
@@ -39,9 +44,9 @@ def get_chat_service(
 
 # TEMP USER
 # replaced by JWT user in Week 4
-DEMO_USER_ID = UUID(
-    "11111111-1111-1111-1111-111111111111"
-)
+# DEMO_USER_ID = UUID(
+#     "11111111-1111-1111-1111-111111111111"
+# )
 
 
 async def generate_stream():
@@ -58,10 +63,13 @@ async def generate_stream():
     response_model=list[ConversationResponse],
 )
 def list_conversations(
+    current_user: User = Depends(
+        get_current_user
+    ),
     service: ChatService = Depends(get_chat_service),
 ):
     return service.list_conversations(
-        DEMO_USER_ID
+        current_user.id
     )
 
 
@@ -71,10 +79,13 @@ def list_conversations(
 )
 def create_conversation(
     request: CreateConversationRequest,
+    current_user: User = Depends(
+        get_current_user
+    ),
     service: ChatService = Depends(get_chat_service),
 ):
     return service.create_conversation(
-        user_id=DEMO_USER_ID,
+        user_id=current_user.id,
         title=request.title,
         mode=request.mode.value,
     )
@@ -124,6 +135,28 @@ def send_message(
     return service.send_message(
         conversation_id=conversation_id,
         user_message=request.content,
+    )
+
+
+# STREAMING: New endpoint for streaming responses
+# Frontend calls this instead of /messages to get real-time text streaming
+@router.post(
+    "/{conversation_id}/messages/stream",
+    response_class=StreamingResponse,
+)
+async def send_message_stream(
+    conversation_id: UUID,
+    request: SendMessageRequest,
+    service: ChatService = Depends(get_chat_service),
+):
+    # STREAMING: Create generator that yields chunks of AI response
+    # StreamingResponse sends each chunk to frontend as it arrives
+    return StreamingResponse(
+        service.send_message_stream(
+            conversation_id=conversation_id,
+            user_message=request.content,
+        ),
+        media_type="text/plain",  # STREAMING: Sends plain text chunks
     )
 
 

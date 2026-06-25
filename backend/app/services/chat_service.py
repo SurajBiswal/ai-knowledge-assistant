@@ -7,6 +7,8 @@ from app.repositories.conversation_repository import (
 from app.repositories.message_repository import (
     MessageRepository,
 )
+# STREAMING: Import the streaming response function from Gemini service
+from app.services.gemini_service import generate_stream_response
 
 
 class ChatService:
@@ -131,3 +133,65 @@ class ChatService:
         )
 
         return assistant_message
+
+    # STREAMING: New method that yields AI response chunks in real-time
+    # This allows frontend to display text gradually as it's being generated
+    def send_message_stream(
+        self,
+        conversation_id: UUID,
+        user_message: str,
+    ):
+        # STREAMING: Fetch the conversation from DB
+        conversation = self.get_conversation(
+            conversation_id
+        )
+
+        if not conversation:
+            raise ValueError(
+                "Conversation not found"
+            )
+
+        # STREAMING: Load previous history for context (same as send_message)
+        history = (
+            self.message_repository.get_last_n_messages(
+                conversation_id=conversation_id,
+                limit=10,
+            )
+        )
+
+        # STREAMING: Save user message immediately
+        self.message_repository.create(
+            conversation_id=conversation_id,
+            role="user",
+            content=user_message,
+        )
+
+        # STREAMING: Build prompt from history (same logic as chatbot_node)
+        prompt = ""
+        for msg in history:
+            prompt += (
+                f"{msg.role}: "
+                f"{msg.content}\n"
+            )
+        prompt += f"user: {user_message}"
+
+        # STREAMING: Use full response to collect chunks
+        complete_response = ""
+        
+        try:
+            # STREAMING: Call Gemini with streaming enabled
+            for chunk in generate_stream_response(prompt):
+                complete_response += chunk
+                # STREAMING: Yield chunk immediately (frontend receives it)
+                yield chunk
+        except Exception as e:
+            raise RuntimeError(
+                f"Streaming failed: {str(e)}"
+            )
+
+        # STREAMING: After streaming completes, save full response to DB
+        self.message_repository.create(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=complete_response,
+        )

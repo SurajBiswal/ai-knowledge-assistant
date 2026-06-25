@@ -50,6 +50,52 @@ export async function sendMessage(
   return data;
 }
 
+// STREAMING: New function for streaming message responses
+// Instead of waiting for full response, this streams chunks as they arrive
+export async function sendMessageStream(
+  conversationId,
+  content,
+  onChunk // STREAMING: Callback function that receives each text chunk
+) {
+  // STREAMING: Use fetch instead of axios for streaming support
+  const response = await fetch(
+    `${BASE_URL}/api/conversations/${conversationId}/messages/stream`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  // STREAMING: Read the response body as a stream
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+      
+      // STREAMING: Decode chunk and pass to callback
+      const chunk = decoder.decode(value, { stream: true });
+      if (chunk) {
+        onChunk(chunk);  // STREAMING: Frontend updates message with this chunk
+      }
+    }
+  } finally {
+    reader.cancel();
+  }
+}
+
 export async function deleteConversation(
   conversationId
 ) {

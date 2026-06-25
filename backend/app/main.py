@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.conversations.router import (
     router as conversations_router,
 )
+from app.api.auth.router import (
+    router as auth_router,
+)
 
 app = FastAPI(
     title="AI Knowledge Assistant"
@@ -23,3 +26,5 @@ def health():
     }
 
 app.include_router(conversations_router)
+
+app.include_router(auth_router)
