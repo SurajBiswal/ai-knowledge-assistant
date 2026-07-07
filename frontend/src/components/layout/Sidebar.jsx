@@ -1,3 +1,7 @@
+import { useState } from "react";
+import FileUpload from "../upload/FileUpload";
+import DocumentList from "../upload/DocumentList";
+
 function NavIcon({ children, label, active = false }) {
   return (
     <button
@@ -25,7 +29,12 @@ export default function Sidebar({
   onNewConversation,
   user,
   onLogout,
+  onRenameConversation,
 }) {
+
+  const [documentsOpen, setDocumentsOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const handleDocumentsRefresh = () => setRefreshKey((k) => k + 1);
 
   return (
     <>
@@ -101,6 +110,37 @@ export default function Sidebar({
         {/* Divider */}
         <div className="mx-3 border-t border-slate-200 my-1" />
 
+        {/* Documents (collapsible) */}
+        <div className="px-3 pt-2">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest px-2 mb-2">
+            Documents
+          </p>
+
+          <button
+            onClick={() => setDocumentsOpen((v) => !v)}
+            aria-expanded={documentsOpen}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          >
+            <span>📄</span>
+            <span>Documents</span>
+            <span className="ml-auto text-xs text-slate-400">{documentsOpen ? '▾' : '▸'}</span>
+          </button>
+
+          {documentsOpen && (
+            <div className="mt-3 px-1">
+              <div className="rounded-md bg-white p-2">
+                <FileUpload onUploadSuccess={handleDocumentsRefresh} />
+                <div className="mt-2">
+                  <DocumentList refreshTrigger={refreshKey} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="mx-3 border-t border-slate-200 my-2" />
+
         {/* Recent Chats */}
         <div className="flex-1 overflow-y-auto px-3 pt-2 min-h-0">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest px-2 mb-2">Recent</p>
@@ -111,36 +151,57 @@ export default function Sidebar({
               </div>
             ) : (
               conversations.map((conversation) => (
-                <button
+                <div
                   key={conversation.id}
-                  onClick={() =>
-                    onSelectConversation(
-                      conversation.id
-                    )
-                  }
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors duration-150 group
+                  className="flex items-center gap-1 group"
+                >
+                  <button
+                    onClick={() =>
+                      onSelectConversation(
+                        conversation.id
+                      )
+                    }
+                    className={`flex-1 text-left px-3 py-2 rounded-lg transition-colors duration-150
         ${activeConversationId ===
                       conversation.id
                       ? "bg-indigo-50 text-indigo-800"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     }`}
-                >
-                  <p className="text-sm truncate leading-snug">
-                    {conversation.title}
-                  </p>
-
-                  <p
-                    className={`text-[11px] mt-0.5 ${activeConversationId ===
-                        conversation.id
-                        ? "text-indigo-400"
-                        : "text-slate-400"
-                      }`}
                   >
-                    {new Date(
-                      conversation.updated_at
-                    ).toLocaleDateString()}
-                  </p>
-                </button>
+                    <p className="text-sm truncate leading-snug">
+                      {conversation.title}
+                    </p>
+
+                    <p
+                      className={`text-[11px] mt-0.5 ${activeConversationId ===
+                          conversation.id
+                          ? "text-indigo-400"
+                          : "text-slate-400"
+                        }`}
+                    >
+                      {new Date(
+                        conversation.updated_at
+                      ).toLocaleDateString()}
+                    </p>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (
+                        typeof onRenameConversation ===
+                        "function"
+                      ) {
+                        onRenameConversation(
+                          conversation.id
+                        );
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 px-1 py-2 text-sm transition-opacity"
+                    title="Rename"
+                  >
+                    ✎
+                  </button>
+                </div>
               ))
             )}
           </div>

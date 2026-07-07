@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from fastapi import HTTPException
+
 from app.graph.graph import graph
 from app.repositories.conversation_repository import (
     ConversationRepository,
@@ -8,7 +10,10 @@ from app.repositories.message_repository import (
     MessageRepository,
 )
 # STREAMING: Import the streaming response function from Gemini service
-from app.services.gemini_service import generate_stream_response
+from app.services.gemini_service import (
+    generate_stream_response,
+    generate_conversation_title,
+)
 
 
 class ChatService:
@@ -40,6 +45,39 @@ class ChatService:
         return self.conversation_repository.get_by_id(
             conversation_id
         )
+
+    def rename_conversation(
+        self,
+        user,
+        conversation_id: UUID,
+        title: str,
+    ):
+        conversation = self.get_conversation(conversation_id)
+
+        if not conversation:
+            raise HTTPException(
+                status_code=404,
+                detail="Conversation not found",
+            )
+
+        if conversation.user_id != user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Unauthorized",
+            )
+
+        renamed = self.conversation_repository.rename(
+            conversation_id=conversation_id,
+            title=title,
+        )
+
+        if not renamed:
+            raise HTTPException(
+                status_code=404,
+                detail="Conversation not found",
+            )
+
+        return renamed
 
     def list_conversations(
         self,
@@ -80,6 +118,20 @@ class ChatService:
             raise ValueError(
                 "Conversation not found"
             )
+        
+        # If this is still a new chat, I should generate a title before continuing.
+        if conversation.title == "New Chat":
+            try:
+                generated_title = generate_conversation_title(
+                    user_message
+                )
+
+                self.conversation_repository.rename(
+                    conversation_id=conversation_id,
+                    title=generated_title,
+                )
+            except Exception:
+                pass
 
         # Load previous history BEFORE saving
         history = (
@@ -150,6 +202,19 @@ class ChatService:
             raise ValueError(
                 "Conversation not found"
             )
+        
+        if conversation.title == "New Chat":
+            try:
+                generated_title = generate_conversation_title(
+                    user_message
+                )
+
+                self.conversation_repository.rename(
+                    conversation_id=conversation_id,
+                    title=generated_title,
+                )
+            except Exception:
+                pass
 
         # STREAMING: Load previous history for context (same as send_message)
         history = (

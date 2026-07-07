@@ -19,3 +19,31 @@ def generate_stream_response(prompt: str):
 
     for chunk in stream:
         yield chunk.text
+
+
+def generate_conversation_title(
+    first_message: str,
+) -> str:
+    prompt = f"""
+Generate a short conversation title.
+
+Maximum 5 words.
+
+Return only the title.
+
+Message:
+{first_message}
+"""
+
+    response = model.generate_content(prompt)
+
+    title = response.text.strip()
+
+    # Remove surrounding quotes if present
+    title = title.strip('"').strip("'")
+
+    # Fallback
+    if not title:
+        return "New Chat"
+
+    return title

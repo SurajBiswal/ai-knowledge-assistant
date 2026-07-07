@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -43,6 +44,25 @@ class ConversationRepository:
         result = self.db.execute(stmt)
 
         return result.scalar_one_or_none()
+
+    def rename(
+        self,
+        conversation_id: UUID,
+        title: str,
+    ) -> Conversation | None:
+
+        conversation = self.get_by_id(conversation_id)
+
+        if not conversation:
+            return None
+
+        conversation.title = title
+        conversation.updated_at = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(conversation)
+
+        return conversation
 
     def list_by_user(
         self,

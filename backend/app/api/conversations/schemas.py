@@ -32,6 +32,13 @@ class ConversationResponse(BaseModel):
         from_attributes = True
 
 
+class RenameConversationRequest(BaseModel):
+    title: str = Field(
+        min_length=1,
+        max_length=500,
+    )
+
+
 class SendMessageRequest(BaseModel):
     content: str = Field(
         min_length=1,

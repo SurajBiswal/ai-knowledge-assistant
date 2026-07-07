@@ -7,6 +7,7 @@ import {
   createConversation,
   getConversations,
   getMessages,
+  renameConversation,
   sendMessage,
   sendMessageStream, // STREAMING: Import the streaming function
 } from "../services/conversationService";
@@ -54,6 +55,7 @@ export default function ChatPage({ user, onLogout }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);       // { message: string } | null
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
 
   // Prevent double-sends if the user submits before the previous resolves
   const pendingRef = useRef(false);
@@ -109,6 +111,8 @@ export default function ChatPage({ user, onLogout }) {
             );
           }
         );
+        // Refresh sidebar so generated title appears
+        await loadConversations();
       } catch (err) {
         setError({
           message:
@@ -126,8 +130,10 @@ export default function ChatPage({ user, onLogout }) {
 
       setConversations(data);
 
-      if (data.length > 0) {
-        await selectConversation(data[0].id);
+      if (activeConversationId) {
+          await selectConversation(activeConversationId);
+      } else if (data.length > 0) {
+          await selectConversation(data[0].id);
       }
     } catch (error) {
       console.error(error);
@@ -179,6 +185,32 @@ export default function ChatPage({ user, onLogout }) {
     }
   };
 
+  const handleRenameConversation = async (conversationId) => {
+    const conversation = conversations.find(
+      (c) => c.id === conversationId
+    );
+    const newTitle = window.prompt(
+      "Rename conversation:",
+      conversation?.title || ""
+    );
+
+    if (!newTitle || newTitle.trim() === "")
+      return;
+
+    try {
+      await renameConversation(
+        conversationId,
+        newTitle.trim()
+      );
+      await loadConversations();
+    } catch (error) {
+      console.error(
+        "Failed to rename conversation:",
+        error
+      );
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-white font-sans">
       {/* Sidebar */}
@@ -195,6 +227,9 @@ export default function ChatPage({ user, onLogout }) {
         onNewConversation={
           createNewConversation
         }
+        onRenameConversation={
+          handleRenameConversation
+        }
         user={user}
         onLogout={onLogout}
       />
@@ -203,6 +238,8 @@ export default function ChatPage({ user, onLogout }) {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Header */}
         <Header onMenuToggle={() => setSidebarOpen((v) => !v)} />
+
+        
 
         {/* Messages — grows to fill available space */}
         <ChatWindow

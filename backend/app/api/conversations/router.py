@@ -7,6 +7,7 @@ from app.api.conversations.schemas import (
     CreateConversationRequest,
     ConversationResponse,
     MessageResponse,
+    RenameConversationRequest,
     SendMessageRequest
 )
 from app.database.session import get_db
@@ -91,20 +92,47 @@ def create_conversation(
     )
 
 
+@router.patch("/{conversation_id}", response_model=ConversationResponse)
+def rename_conversation(
+    conversation_id: UUID,
+    request: RenameConversationRequest,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    service: ChatService = Depends(get_chat_service),
+):
+    return service.rename_conversation(
+        user=current_user,
+        conversation_id=conversation_id,
+        title=request.title,
+    )
+
+
 @router.delete("/{conversation_id}")
 def delete_conversation(
     conversation_id: UUID,
+    current_user: User = Depends(
+        get_current_user
+    ),
     service: ChatService = Depends(get_chat_service),
 ):
-    deleted = service.delete_conversation(
-        conversation_id
-    )
+    conversation = service.get_conversation(conversation_id)
 
-    if not deleted:
+    if not conversation:
         raise HTTPException(
             status_code=404,
             detail="Conversation not found",
         )
+
+    if conversation.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Unauthorized",
+        )
+
+    deleted = service.delete_conversation(
+        conversation_id
+    )
 
     return {"success": True}
 
@@ -115,8 +143,25 @@ def delete_conversation(
 )
 def get_messages(
     conversation_id: UUID,
+    current_user: User = Depends(
+        get_current_user
+    ),
     service: ChatService = Depends(get_chat_service),
 ):
+    conversation = service.get_conversation(conversation_id)
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found",
+        )
+
+    if conversation.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Unauthorized",
+        )
+
     return service.get_messages(
         conversation_id
     )
@@ -130,8 +175,25 @@ def get_messages(
 def send_message(
     conversation_id: UUID,
     request: SendMessageRequest,
+    current_user: User = Depends(
+        get_current_user
+    ),
     service: ChatService = Depends(get_chat_service),
 ):
+    conversation = service.get_conversation(conversation_id)
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found",
+        )
+
+    if conversation.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Unauthorized",
+        )
+
     return service.send_message(
         conversation_id=conversation_id,
         user_message=request.content,
@@ -147,8 +209,25 @@ def send_message(
 async def send_message_stream(
     conversation_id: UUID,
     request: SendMessageRequest,
+    current_user: User = Depends(
+        get_current_user
+    ),
     service: ChatService = Depends(get_chat_service),
 ):
+    conversation = service.get_conversation(conversation_id)
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found",
+        )
+
+    if conversation.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Unauthorized",
+        )
+
     # STREAMING: Create generator that yields chunks of AI response
     # StreamingResponse sends each chunk to frontend as it arrives
     return StreamingResponse(

@@ -97,6 +97,18 @@ export async function sendMessageStream(
   }
 }
 
+export async function renameConversation(
+  conversationId,
+  title
+) {
+  const { data } = await api.patch(
+    `/api/conversations/${conversationId}`,
+    { title }
+  );
+
+  return data;
+}
+
 export async function deleteConversation(
   conversationId
 ) {

@@ -7,6 +7,10 @@ from app.api.auth.router import (
     router as auth_router,
 )
 
+from app.api.documents.router import (
+    router as documents_router,
+)
+
 app = FastAPI(
     title="AI Knowledge Assistant"
 )
@@ -28,3 +32,5 @@ def health():
 app.include_router(conversations_router)
 
 app.include_router(auth_router)
+
+app.include_router(documents_router)
