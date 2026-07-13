@@ -21,6 +21,10 @@ from app.repositories.document_repository import (
     DocumentRepository,
 )
 
+from app.repositories.document_chunk_repository import (
+    DocumentChunkRepository,
+)
+
 from app.services.document_service import (
     DocumentService,
 )
@@ -41,7 +45,8 @@ def get_document_service(
     db: Session = Depends(get_db),
 ) -> DocumentService:
     return DocumentService(
-        DocumentRepository(db)
+        DocumentRepository(db),
+        DocumentChunkRepository(db)
     )
 
 

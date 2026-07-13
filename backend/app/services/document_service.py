@@ -3,20 +3,26 @@ from uuid import uuid4, UUID
 from fastapi import HTTPException, UploadFile, status
 
 from app.models.document import Document
+from app.models.document_chunk import DocumentChunk
 from app.models.user import User
 from app.repositories.document_repository import DocumentRepository
-
-
+from app.repositories.document_chunk_repository import DocumentChunkRepository
+from app.rag.chunker import DocumentChunker
+from app.rag.embedder import GeminiEmbedder
+from app.rag.extractor import DocumentExtractor
 UPLOAD_DIR = Path("uploads")
-
 
 class DocumentService:
 
     ALLOWED_EXTENSIONS = {"pdf", "docx", "txt"}
     MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
-    def __init__(self, document_repository: DocumentRepository):
+    def __init__(self, document_repository: DocumentRepository, chunk_repository: DocumentChunkRepository):
         self.document_repository = document_repository
+        self.chunk_repository = chunk_repository
+        self.chunker = DocumentChunker()
+        self.embedder = GeminiEmbedder()
+        self.extractor = DocumentExtractor()
 
     def _create_upload_directory(self) -> None:
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -102,6 +108,17 @@ class DocumentService:
                 detail="Failed to save document metadata.",
             ) from e
         
+        try:
+            self.process_document(document)
+        except Exception as e:
+            document.status = "error"
+            self.document_repository.update(document)
+
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to process document: {e}",
+            ) from e
+        
         return document
     
     
@@ -147,3 +164,38 @@ class DocumentService:
 
         # Delete the record from the database
         self.document_repository.delete(document)
+
+
+    def process_document(
+            self,
+            document: Document,
+    ) -> None:
+        """
+        Process an uploaded document by extracting its text,
+        splitting it into chunks, generating embeddings,
+        and storing the chunks for semantic retrieval.
+        """
+
+        # Step 1: Extracting text from the document (PDF, DOCX, TXT)
+        text = self.extractor.extract(document.file_path, document.file_type)
+
+        # Step 2 — Chunking
+        chunks = self.chunker.chunk_text(text)
+
+        # Step 3 — Embeddings
+        for chunk in chunks:
+
+            embedding = self.embedder.generate_embedding(
+                chunk.chunk_text
+            )
+            document_chunk = DocumentChunk(
+                document_id=document.id,
+                chunk_index=chunk.chunk_index,
+                chunk_text=chunk.chunk_text,
+                embedding=embedding,
+                chunk_metadata=chunk.metadata,
+            )
+            self.chunk_repository.create(document_chunk)
+
+        document.status = "processed"
+        self.document_repository.update(document)

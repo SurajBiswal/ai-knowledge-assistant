@@ -9,6 +9,7 @@ from app.database.base import Base
 
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.document_chunk import DocumentChunk
 
 
 class Document(Base):
@@ -58,4 +59,9 @@ class Document(Base):
 
     user: Mapped["User"] = relationship(
         back_populates="documents"
+    )
+
+    chunks: Mapped[list["DocumentChunk"]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
     )

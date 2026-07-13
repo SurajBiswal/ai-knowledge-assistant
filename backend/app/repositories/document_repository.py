@@ -57,3 +57,11 @@ class DocumentRepository:
     def delete(self, document: Document) -> None:
         self.db.delete(document)
         self.db.commit()
+
+    def update(self, document: Document) -> Document:
+        self.db.add(document)
+        self.db.commit()
+        self.db.refresh(document)
+        return document
+    
+    
