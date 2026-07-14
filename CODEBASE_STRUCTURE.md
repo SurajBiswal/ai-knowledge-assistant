@@ -83,6 +83,9 @@ ai-knowledge-assistant/
 - backend/app/rag/embedder.py
   - Generates embeddings from text using Gemini.
 
+- backend/app/rag/retriever.py
+  - Performs semantic retrieval by converting a question into an embedding and finding the most similar document chunks.
+
 ### backend/app/graph/
 
 - backend/app/graph/state.py
@@ -109,7 +112,7 @@ ai-knowledge-assistant/
   - Handles document metadata CRUD and listing by user.
 
 - backend/app/repositories/document_chunk_repository.py
-  - Handles creation and deletion of document chunks linked to a document.
+  - Handles creation, deletion, and semantic vector search for document chunks.
 
 ### backend/app/services/
 

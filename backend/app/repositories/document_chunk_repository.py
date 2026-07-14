@@ -52,3 +52,35 @@ class DocumentChunkRepository:
 
         self.db.execute(stmt)
         self.db.commit()
+
+    def search_similar(
+            self,
+            query_embedding: list[float],
+            top_k: int = 5,
+    )-> list[tuple[DocumentChunk, float]]:
+        
+        """
+        Retrieve the top-k document chunks whose embeddings are
+        most similar to the provided query embedding.
+
+        Similarity is calculated using pgvector cosine distance.
+
+        Args:
+            query_embedding: 768-dimensional query embedding.
+            top_k: Maximum number of chunks to return.
+
+        Returns:
+            A list of DocumentChunk objects ordered from most
+            similar to least similar.
+        """
+        
+        distance = DocumentChunk.embedding.cosine_distance(query_embedding) # this is the pgvector function to calculate cosine distance between two vectors
+        stmt = (
+            select(DocumentChunk,
+                   distance.label("cosine_distance")
+                )
+            .order_by(distance)
+            .limit(top_k)
+        )
+        result = self.db.execute(stmt)
+        return list(result.all())

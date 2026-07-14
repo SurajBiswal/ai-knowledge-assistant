@@ -1,9 +1,9 @@
 # Current Status Report
 
 ## Project Snapshot
-- Current week: Week 6
+- Current week: Week 7
 - Current branch: suraj_Ofc
-- Overall progress: Weeks 1–6 are implemented at the core feature level, with the project now covering basic chat, persistence, streaming, authentication, conversation history, and document upload.
+- Overall progress: Weeks 1–6 are implemented at the core feature level, with the project now covering basic chat, persistence, streaming, authentication, conversation history, document upload, and semantic retrieval over document chunks.
 
 ---
 
@@ -68,14 +68,26 @@
 ---
 
 ## Week 6 — File Upload
-- Current week: Week 6 (Current)
+- Current week: Week 6 (Completed)
 - Completed work: Implemented document upload, listing, and deletion. Users can upload PDF, DOCX, and TXT files, which are stored locally under the uploads directory and tracked in the database.
 - Current branch: suraj_Ofc
 - Working features: File picker in the UI, upload progress feedback, document listing, delete action, metadata persistence.
 - APIs: POST /api/documents/upload, GET /api/documents, DELETE /api/documents/{document_id}
 - Database status: The documents table is present with user ownership, metadata, file path, file type, size, and upload timestamp.
-- Known issues: File upload is currently storage-based only; there is no content extraction or RAG integration yet.
-- Next task: Move to Week 7 and implement basic RAG over uploaded documents.
+- Known issues: File upload remains storage-based only; content-based retrieval and embedding support are still incomplete.
+- Next task: Transition to Week 7 and implement basic semantic retrieval using embedded document chunks.
+
+---
+
+## Week 7 — Semantic Retrieval
+- Current week: Week 7 (Current)
+- Completed work: Added semantic retrieval capabilities for document chunks using embeddings and cosine similarity search.
+- Current branch: suraj_Ofc
+- Working features: Document chunks can now be searched using a `SemanticRetriever` that converts a question into an embedding and uses the repository's vector search method.
+- APIs: No public API changes yet; backend connector logic now supports embedding-based chunk retrieval.
+- Database status: Document chunks support pgvector cosine distance searches, enabling top-k retrieval of similar chunks.
+- Known issues: Retrieval is implemented at the repository layer but may still need integration into the full chat prompt pipeline.
+- Next task: Wire semantic retrieval into the chat flow and generate better AI answers with document context.
 
 
 

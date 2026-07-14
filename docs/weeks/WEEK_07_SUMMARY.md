@@ -780,3 +780,278 @@ This establishes the complete ingestion layer required for Retrieval-Augmented G
 ## Status
 
 **✅ Part 4 Completed**
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+# Part 5 — Semantic Retriever ✅
+
+## Objective
+
+Implement the semantic retrieval component responsible for finding the most relevant document chunks for a user's question.
+
+This stage introduces vector-based retrieval by converting user questions into embeddings, performing cosine similarity search against the indexed document chunks stored in PostgreSQL, and returning the most relevant chunks. This establishes the retrieval layer required for Retrieval-Augmented Generation (RAG).
+
+---
+
+## Work Completed
+
+### 1. Designed the Semantic Retrieval Flow
+
+Studied and designed the end-to-end semantic retrieval pipeline used during question answering.
+
+The implemented retrieval flow is:
+
+```text
+User Question
+      ↓
+Generate Query Embedding
+      ↓
+Cosine Similarity Search (pgvector)
+      ↓
+Top-K Relevant Chunks
+      ↓
+Return Retrieved Chunks
+```
+
+This retrieval pipeline complements the document indexing pipeline implemented in Part 4.
+
+---
+
+### 2. Extended the DocumentChunk Repository
+
+Extended:
+
+```text
+backend/app/repositories/document_chunk_repository.py
+```
+
+by implementing:
+
+```python
+search_similar()
+```
+
+This repository method is responsible for performing semantic vector search within PostgreSQL.
+
+Responsibilities include:
+
+* Accepting a query embedding vector
+* Performing cosine distance search using pgvector
+* Ordering results by semantic similarity
+* Limiting the number of returned chunks
+* Returning matching database records
+
+The repository remains responsible only for database interactions and does not perform embedding generation or business logic.
+
+---
+
+### 3. Implemented pgvector Cosine Distance Search
+
+Implemented semantic vector retrieval using the pgvector SQLAlchemy integration.
+
+Used:
+
+```python
+DocumentChunk.embedding.cosine_distance(...)
+```
+
+which generates PostgreSQL cosine distance queries internally.
+
+The search query:
+
+* Computes cosine distance between the query embedding and stored chunk embeddings
+* Orders chunks by increasing cosine distance
+* Returns the nearest semantic neighbours
+
+This enables semantic retrieval without performing traditional keyword matching.
+
+---
+
+### 4. Leveraged the Existing HNSW Vector Index
+
+The semantic search automatically utilizes the previously created HNSW index on the `embedding` column.
+
+Since the index was configured using:
+
+```text
+vector_cosine_ops
+```
+
+no additional query optimization was required.
+
+This allows efficient Approximate Nearest Neighbour (ANN) search even as the number of stored document chunks grows.
+
+---
+
+### 5. Built the SemanticRetriever Component
+
+Created:
+
+```text
+backend/app/rag/retriever.py
+```
+
+Implemented the reusable:
+
+```text
+SemanticRetriever
+```
+
+component responsible for coordinating the retrieval workflow.
+
+Its responsibilities include:
+
+* Receiving a user's question
+* Generating a query embedding
+* Invoking the repository vector search
+* Returning the retrieved document chunks
+
+The retriever delegates embedding generation and database access to dedicated components rather than implementing those responsibilities itself.
+
+---
+
+### 6. Reused the Existing GeminiEmbedder
+
+Integrated the previously implemented:
+
+```text
+GeminiEmbedder
+```
+
+to generate embeddings for user questions.
+
+The retriever reuses the same embedding model (`gemini-embedding-001`) that was used during document indexing, ensuring that both document chunks and user queries exist within the same embedding space for meaningful semantic comparison.
+
+---
+
+### 7. Implemented Configurable Top-K Retrieval
+
+Added configurable retrieval size by allowing callers to specify:
+
+```python
+top_k
+```
+
+The retriever now returns only the requested number of most relevant chunks.
+
+The value is configurable and is not hardcoded, allowing future tuning of retrieval quality.
+
+---
+
+### 8. Introduced the RetrievedChunk Data Model
+
+Introduced a dedicated:
+
+```python
+RetrievedChunk
+```
+
+dataclass representing retrieval results.
+
+Each retrieved chunk contains:
+
+* `document_id`
+* `chunk_index`
+* `chunk_text`
+* `metadata`
+* `cosine_distance`
+
+This separates the application's retrieval layer from SQLAlchemy ORM models and provides a clean data structure for future LangGraph and LLM integration.
+
+---
+
+### 9. Added Retriever-Level Error Handling
+
+Improved robustness by adding application-level error handling.
+
+Handled:
+
+* Embedding generation failures
+* Database retrieval failures
+
+Meaningful exceptions are raised while preserving the original underlying exception for debugging purposes.
+
+---
+
+### 10. Verified Semantic Retrieval
+
+Created:
+
+```text
+backend/test_retriever.py
+```
+
+to independently test the retrieval pipeline.
+
+The test:
+
+* Creates a database session
+* Initializes the repository
+* Initializes the Gemini embedder
+* Creates a `SemanticRetriever`
+* Generates query embeddings
+* Retrieves the most relevant chunks
+* Prints cosine distance and retrieved chunk information
+
+This confirmed that the semantic retrieval pipeline functions correctly before integrating it into LangGraph.
+
+---
+
+### 11. Validated Retrieval Quality
+
+Successfully tested retrieval using indexed project documents.
+
+Verified:
+
+* Query embeddings are generated successfully
+* Cosine distance search executes correctly
+* HNSW vector search returns relevant chunks
+* Results are ordered by increasing cosine distance
+* Configurable Top-K retrieval functions correctly
+* Retrieved chunks are semantically relevant to the user's question
+
+---
+
+## Retrieval Pipeline
+
+The completed semantic retrieval pipeline is:
+
+```text
+User Question
+      ↓
+GeminiEmbedder
+      ↓
+768-D Query Embedding
+      ↓
+DocumentChunkRepository
+      ↓
+pgvector Cosine Distance Search
+      ↓
+Top-K Retrieved Chunks
+      ↓
+SemanticRetriever
+```
+
+---
+
+## Outcome
+
+The project now contains a fully functional semantic retrieval layer capable of finding the most relevant document chunks using vector similarity search.
+
+For every user question:
+
+* A query embedding is generated using the Gemini embedding model.
+* PostgreSQL performs cosine distance search using pgvector against the stored document embeddings.
+* The HNSW vector index accelerates nearest-neighbour retrieval.
+* The retriever returns the most relevant document chunks as `RetrievedChunk` objects, ready to be consumed by the upcoming LangGraph RAG workflow.
+
+This establishes the retrieval foundation required for Retrieval-Augmented Generation (RAG).
+
+---
+
+## Status
+
+**✅ Part 5 Completed**
