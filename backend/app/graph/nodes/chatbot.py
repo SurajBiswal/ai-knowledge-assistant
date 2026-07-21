@@ -14,7 +14,7 @@ def chatbot_node(state: chatState):
         )
 
     prompt += (
-        f"user: {state['message']}"
+        f"user: {state['query']}"
     )
 
     # Now prompt looks like:

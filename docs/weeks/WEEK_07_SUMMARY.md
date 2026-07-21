@@ -1055,3 +1055,394 @@ This establishes the retrieval foundation required for Retrieval-Augmented Gener
 ## Status
 
 **✅ Part 5 Completed**
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+---
+
+# Week 7 – Part 6: LangGraph Retriever Node
+
+* **Status:** ✅ Completed
+* **Objective:** Integrate the semantic retrieval pipeline into LangGraph by creating a dedicated **RAG (Retriever) Node**. This node is responsible for retrieving the most relevant document chunks for a user's query and storing them in the graph state so that downstream nodes can use the retrieved context.
+
+---
+
+# Goal
+
+The previous parts of Week 7 focused on building the retrieval infrastructure:
+
+* Enabled **pgvector** for vector similarity search.
+* Created the **DocumentChunk** model and HNSW index.
+* Implemented **GeminiEmbedder** for generating vector embeddings.
+* Built **DocumentChunker** for splitting documents into semantic chunks.
+* Implemented **SemanticRetriever** to perform embedding generation and vector search.
+
+In this part, these components were integrated into the **LangGraph workflow** by introducing a dedicated Retriever Node.
+
+---
+
+# Architecture Before Part 6
+
+Initially, the LangGraph execution flow consisted of only a chatbot node.
+
+```text
+START
+   │
+   ▼
+Chatbot Node
+   │
+   ▼
+END
+```
+
+The chatbot generated responses directly without retrieving any contextual information from the knowledge base.
+
+---
+
+# Architecture After Part 6
+
+The graph now performs document retrieval before generating a response.
+
+```text
+START
+   │
+   ▼
+RAG Retriever Node
+   │
+   ▼
+Chatbot Node
+   │
+   ▼
+END
+```
+
+This establishes the foundation of a Retrieval-Augmented Generation (RAG) pipeline.
+
+---
+
+# Components Implemented
+
+## 1. RAG Node Factory
+
+Created:
+
+```text
+backend/app/graph/nodes/rag.py
+```
+
+Instead of directly creating a node, a factory function was implemented.
+
+```python
+create_rag_node(db: Session)
+```
+
+The factory receives a SQLAlchemy database session and creates all dependencies only once.
+
+Dependencies created:
+
+* DocumentChunkRepository
+* GeminiEmbedder
+* SemanticRetriever
+
+Finally, it returns the actual LangGraph node.
+
+This approach follows dependency injection principles and avoids creating expensive objects every time the graph executes.
+
+---
+
+## 2. Dependency Injection
+
+The RAG node receives its dependencies through the factory.
+
+```text
+Database Session
+        │
+        ▼
+DocumentChunkRepository
+        │
+        ▼
+SemanticRetriever
+        │
+        ▼
+RAG Node
+```
+
+The LangGraph state remains independent of database connections.
+
+The graph state contains only business data, while infrastructure objects remain outside the state.
+
+---
+
+## 3. Query Extraction
+
+The RAG node reads the user's question from the graph state.
+
+```python
+query = state["query"]
+```
+
+The graph state now carries the user query between nodes.
+
+---
+
+## 4. Semantic Retrieval
+
+The node delegates retrieval to the SemanticRetriever.
+
+```python
+retrieved_docs = retriever.retrieve(
+    question=query,
+    top_k=5,
+)
+```
+
+Internally, the retriever performs:
+
+1. Generate an embedding for the user query.
+2. Perform vector similarity search using pgvector.
+3. Retrieve the top 5 most relevant document chunks.
+4. Return the results as `RetrievedChunk` objects.
+
+The RAG node does not contain embedding logic or SQL queries, maintaining a clean separation of responsibilities.
+
+---
+
+## 5. Updating the Graph State
+
+The node returns only the retrieved documents.
+
+```python
+return {
+    "retrieved_docs": retrieved_docs,
+}
+```
+
+LangGraph automatically merges this partial update into the existing graph state.
+
+The RAG node does not modify:
+
+* query
+* messages
+* response
+
+It only enriches the graph state with retrieval results.
+
+---
+
+# Graph State
+
+The graph state now contains an additional field.
+
+```python
+retrieved_docs: list[RetrievedChunk]
+```
+
+The state flows through the graph as follows.
+
+Before retrieval:
+
+```text
+query
+messages
+retrieved_docs = []
+response
+```
+
+After retrieval:
+
+```text
+query
+messages
+retrieved_docs = [RetrievedChunk, RetrievedChunk, ...]
+response
+```
+
+The chatbot node now receives both the original query and the retrieved context.
+
+---
+
+# Retrieval Flow
+
+The complete retrieval pipeline executed by the RAG node is:
+
+```text
+User Query
+      │
+      ▼
+RAG Node
+      │
+      ▼
+SemanticRetriever
+      │
+      ▼
+GeminiEmbedder
+      │
+      ▼
+768-dimensional Query Embedding
+      │
+      ▼
+pgvector Similarity Search
+      │
+      ▼
+Top-k Document Chunks
+      │
+      ▼
+Graph State (retrieved_docs)
+```
+
+Each component has a single responsibility.
+
+* GeminiEmbedder → Generates embeddings.
+* DocumentChunkRepository → Executes vector search.
+* SemanticRetriever → Coordinates retrieval.
+* RAG Node → Orchestrates retrieval within LangGraph.
+
+---
+
+# Integration with LangGraph
+
+The graph was updated to register the new node.
+
+```text
+START
+   │
+   ▼
+RAG
+   │
+   ▼
+Chatbot
+   │
+   ▼
+END
+```
+
+The RAG node executes first, ensuring that document retrieval completes before the chatbot begins generating a response.
+
+---
+
+# Standalone Testing
+
+A standalone test file was created.
+
+```text
+backend/test_rag_node.py
+```
+
+The test manually invokes the RAG node without running FastAPI or the full LangGraph workflow.
+
+Test process:
+
+```text
+Create Database Session
+        │
+        ▼
+Create RAG Node
+        │
+        ▼
+Create Fake ChatState
+        │
+        ▼
+Execute RAG Node
+        │
+        ▼
+Retrieve Top-k Chunks
+        │
+        ▼
+Print Retrieved Documents
+        │
+        ▼
+Verify Results
+```
+
+The following conditions were verified:
+
+* The query remains unchanged.
+* The retriever successfully returns relevant document chunks.
+* The node returns the expected graph state update.
+* The retrieved documents are ordered by cosine similarity.
+
+This confirmed that the retrieval pipeline works independently before integrating it into the complete application.
+
+---
+
+# Design Decisions
+
+Several important architectural decisions were made during implementation.
+
+### Dependency Injection
+
+Dependencies are created once inside the factory rather than during every graph execution.
+
+This improves performance and keeps the node lightweight.
+
+---
+
+### Separation of Responsibilities
+
+Each component performs one specific task.
+
+* RAG Node → Graph orchestration.
+* SemanticRetriever → Retrieval workflow.
+* GeminiEmbedder → Embedding generation.
+* Repository → Database operations.
+
+This modular design improves maintainability and makes individual components easier to test.
+
+---
+
+### Partial State Updates
+
+Instead of returning the complete graph state, the node returns only the updated field.
+
+```python
+return {
+    "retrieved_docs": retrieved_docs,
+}
+```
+
+LangGraph merges the returned dictionary into the existing state automatically.
+
+This follows LangGraph's recommended design pattern and keeps nodes independent.
+
+---
+
+# Final Workflow
+
+The retrieval workflow implemented in Part 6 is:
+
+```text
+User submits a query
+        │
+        ▼
+LangGraph starts execution
+        │
+        ▼
+RAG Node receives ChatState
+        │
+        ▼
+Extract query from state
+        │
+        ▼
+Generate query embedding
+        │
+        ▼
+Perform pgvector similarity search
+        │
+        ▼
+Retrieve top 5 document chunks
+        │
+        ▼
+Store retrieved chunks in graph state
+        │
+        ▼
+Pass enriched state to Chatbot Node
+        │
+        ▼
+Continue graph execution
+```
+
+---
+
+# Outcome
+
+By the end of Week 7 – Part 6, the LangGraph workflow was successfully extended with a dedicated Retriever Node. The graph now performs semantic retrieval before response generation, enabling retrieval-augmented workflows. The implementation follows clean architecture principles through dependency injection, separation of concerns, and partial state updates, establishing the foundation for future enhancements where the chatbot will use the retrieved context to generate grounded responses.

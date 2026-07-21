@@ -88,7 +88,3 @@
 - Database status: Document chunks support pgvector cosine distance searches, enabling top-k retrieval of similar chunks.
 - Known issues: Retrieval is implemented at the repository layer but may still need integration into the full chat prompt pipeline.
 - Next task: Wire semantic retrieval into the chat flow and generate better AI answers with document context.
-
-
-
-  

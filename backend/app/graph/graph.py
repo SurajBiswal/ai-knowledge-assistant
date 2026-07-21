@@ -1,15 +1,40 @@
-from langgraph.graph import StateGraph
+from sqlalchemy.orm import Session
+
 from langgraph.graph import START, END
+from langgraph.graph import StateGraph
 
 from app.graph.state import ChatState
-from app.graph.nodes import chatbot_node
+from app.graph.nodes.chatbot import chatbot_node
+from app.graph.nodes.rag import create_rag_node
 
 
-builder = StateGraph(ChatState)
+def create_graph(db: Session):
 
-builder.add_node("chatbot", chatbot_node)
+    builder = StateGraph(ChatState)
 
-builder.add_edge(START, "chatbot")
-builder.add_edge("chatbot", END)
+    builder.add_node(
+        "rag",
+        create_rag_node(db),
+    )
 
-graph = builder.compile()
+    builder.add_node(
+        "chatbot",
+        chatbot_node,
+    )
+
+    builder.add_edge(
+        START,
+        "rag",
+    )
+
+    builder.add_edge(
+        "rag",
+        "chatbot",
+    )
+
+    builder.add_edge(
+        "chatbot",
+        END,
+    )
+
+    return builder.compile()
