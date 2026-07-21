@@ -79,12 +79,29 @@
 
 ---
 
-## Week 7 — Semantic Retrieval
+## Week 7 — RAG Foundation
 - Current week: Week 7 (Current)
-- Completed work: Added semantic retrieval capabilities for document chunks using embeddings and cosine similarity search.
+- Completed work: Built the core Retrieval-Augmented Generation (RAG) foundation by implementing document chunking, embedding generation, pgvector-based vector storage, semantic retrieval, and LangGraph integration for document retrieval.
 - Current branch: suraj_Ofc
-- Working features: Document chunks can now be searched using a `SemanticRetriever` that converts a question into an embedding and uses the repository's vector search method.
-- APIs: No public API changes yet; backend connector logic now supports embedding-based chunk retrieval.
-- Database status: Document chunks support pgvector cosine distance searches, enabling top-k retrieval of similar chunks.
-- Known issues: Retrieval is implemented at the repository layer but may still need integration into the full chat prompt pipeline.
-- Next task: Wire semantic retrieval into the chat flow and generate better AI answers with document context.
+- Working features:
+  - Uploaded documents are automatically processed into searchable knowledge.
+  - Document text is extracted from PDF, DOCX, and TXT files.
+  - Documents are split into overlapping chunks using a dedicated `DocumentChunker`.
+  - Each chunk is converted into a 768-dimensional embedding using `GeminiEmbedder`.
+  - Chunks and embeddings are stored in PostgreSQL using pgvector with an HNSW vector index.
+  - `SemanticRetriever` converts user questions into embeddings and retrieves the top-k most relevant document chunks using cosine similarity search.
+  - A dedicated LangGraph RAG node retrieves relevant document chunks and stores them in the graph state (`retrieved_docs`) for downstream processing.
+- APIs: No new public API endpoints were introduced. RAG processing is integrated into the backend document processing pipeline and LangGraph workflow.
+- Database status:
+  - `document_chunks` table stores chunk text, embeddings, metadata, and document relationships.
+  - pgvector extension is enabled.
+  - HNSW vector index (`idx_chunks_embedding`) accelerates cosine similarity search.
+  - Uploaded documents are automatically indexed after upload and marked as `processed`.
+- Known issues:
+  - Retrieved document context is now available in the LangGraph state, but it is not yet injected into the LLM prompt.
+  - Source citations and grounded response generation have not yet been implemented.
+- Next task:
+  - Build the RAG service to coordinate retrieval operations.
+  - Inject retrieved document context into the LLM prompt.
+  - Generate grounded responses using retrieved document chunks.
+  - Add source citations to AI responses.
