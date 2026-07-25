@@ -85,6 +85,7 @@
 - Current branch: suraj_Ofc
 - Working features:
   - Uploaded documents are automatically processed into searchable knowledge.
+  - `DocumentService` now delegates document processing and indexing to a dedicated `RAGService`.
   - Document text is extracted from PDF, DOCX, and TXT files.
   - Documents are split into overlapping chunks using a dedicated `DocumentChunker`.
   - Each chunk is converted into a 768-dimensional embedding using `GeminiEmbedder`.

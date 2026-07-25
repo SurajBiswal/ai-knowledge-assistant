@@ -44,7 +44,7 @@ ai-knowledge-assistant/
   - Tests for the RAG graph node behavior.
 
 - backend/test_retriever.py
-  - Tests for the retrieval layer and similarity search.
+  - Run-book retrieval script and regression check for semantic chunk retrieval.
 
 - backend/uploads/
   - Local storage directory for uploaded documents.
@@ -173,7 +173,10 @@ ai-knowledge-assistant/
   - Chat orchestration, conversation handling, and streaming logic.
 
 - backend/app/services/document_service.py
-  - Document upload validation, file storage, and document processing workflow.
+  - Document upload validation, file storage, and document processing workflow; delegates document indexing to RAGService.
+
+- backend/app/services/rag_service.py
+  - Coordinates document extraction, chunking, embedding generation, chunk persistence, and semantic retrieval.
 
 - backend/app/services/gemini_service.py
   - Wrapper around Gemini API calls for standard responses, streaming, and title generation.

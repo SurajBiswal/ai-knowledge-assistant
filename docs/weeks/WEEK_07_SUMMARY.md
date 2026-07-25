@@ -1446,3 +1446,232 @@ Continue graph execution
 # Outcome
 
 By the end of Week 7 – Part 6, the LangGraph workflow was successfully extended with a dedicated Retriever Node. The graph now performs semantic retrieval before response generation, enabling retrieval-augmented workflows. The implementation follows clean architecture principles through dependency injection, separation of concerns, and partial state updates, establishing the foundation for future enhancements where the chatbot will use the retrieved context to generate grounded responses.
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+# Week 7 – Part 7: RAG Service
+
+## Objective
+
+The goal of Part 7 was to introduce a dedicated **RAGService** that acts as the central entry point for all Retrieval-Augmented Generation (RAG) operations. Instead of allowing `DocumentService` to manage document indexing directly, all RAG-specific responsibilities were moved into a separate service to achieve a cleaner architecture and better separation of concerns.
+
+---
+
+## What We Implemented
+
+### 1. Created the `RAGService`
+
+A new service, `backend/app/services/rag_service.py`, was created to coordinate all RAG-related operations.
+
+The service provides two high-level methods:
+
+* **`index_document()`** – Processes an uploaded document and stores its chunks and embeddings.
+* **`retrieve()`** – Retrieves the most relevant document chunks for a user query by delegating retrieval to the `SemanticRetriever`.
+
+This makes `RAGService` the single business-layer entry point for all document indexing and semantic retrieval operations.
+
+---
+
+### 2. Centralized the Document Indexing Workflow
+
+The complete document indexing pipeline was moved from `DocumentService` into `RAGService`.
+
+The indexing workflow is now:
+
+```text
+Document
+    │
+    ▼
+Extract Text
+    │
+    ▼
+Chunk Text
+    │
+    ▼
+Generate Embeddings
+    │
+    ▼
+Store Chunks
+    │
+    ▼
+Update Document Status
+```
+
+During indexing, the service:
+
+* Extracts text using `DocumentExtractor`
+* Splits the text into chunks using `DocumentChunker`
+* Generates embeddings for every chunk using `GeminiEmbedder`
+* Creates `DocumentChunk` records
+* Stores all chunks in PostgreSQL using `DocumentChunkRepository`
+* Marks the uploaded document as **processed**
+
+---
+
+### 3. Exposed Semantic Retrieval Through the Service
+
+Instead of allowing other parts of the application to use `SemanticRetriever` directly, `RAGService` now exposes a single retrieval method.
+
+The retrieval flow is:
+
+```text
+User Question
+      │
+      ▼
+RAGService
+      │
+      ▼
+SemanticRetriever
+      │
+      ▼
+Generate Query Embedding
+      │
+      ▼
+pgvector Similarity Search
+      │
+      ▼
+Retrieved Chunks
+```
+
+This keeps retrieval logic centralized and hides implementation details from higher-level services.
+
+---
+
+### 4. Refactored `DocumentService`
+
+`DocumentService` was simplified by removing all RAG-specific implementation details.
+
+Its responsibilities are now limited to:
+
+* Validating uploaded files
+* Saving files to disk
+* Creating document metadata
+* Delegating document indexing to `RAGService`
+
+The upload flow became:
+
+```text
+Upload Document
+      │
+      ▼
+DocumentService
+      │
+      ▼
+Save File
+      │
+      ▼
+Save Document Metadata
+      │
+      ▼
+RAGService.index_document()
+```
+
+This separation makes the service easier to maintain and keeps document management independent of RAG processing.
+
+---
+
+### 5. Validated the Complete Workflow
+
+After refactoring, the complete RAG pipeline was tested to ensure existing functionality remained intact.
+
+The following scenarios were verified successfully:
+
+* Uploaded documents are processed successfully.
+* Document status changes from **uploaded** to **processed**.
+* Document chunks are stored in PostgreSQL.
+* Embeddings are generated and stored for every chunk.
+* Semantic retrieval returns the most relevant document chunks.
+* `RAGService.retrieve()` correctly delegates retrieval to `SemanticRetriever`.
+
+These tests confirmed that the refactoring preserved functionality while improving the overall architecture.
+
+---
+
+## Final Architecture
+
+```text
+                    Upload Document
+                           │
+                           ▼
+                  DocumentService
+                           │
+                           ▼
+                 RAGService.index_document()
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+DocumentExtractor   DocumentChunker   GeminiEmbedder
+        │                  │                  │
+        └──────────────────┼──────────────────┘
+                           ▼
+            DocumentChunkRepository
+                           │
+                           ▼
+                     PostgreSQL
+```
+
+For retrieval:
+
+```text
+User Question
+      │
+      ▼
+RAGService.retrieve()
+      │
+      ▼
+SemanticRetriever
+      │
+      ▼
+GeminiEmbedder
+      │
+      ▼
+DocumentChunkRepository
+      │
+      ▼
+pgvector Cosine Similarity Search
+      │
+      ▼
+Retrieved Chunks
+```
+
+---
+
+## Key Concepts Learned
+
+During Part 7, the following concepts were learned:
+
+* Service-layer orchestration
+* Separation of concerns
+* Business-layer abstraction
+* Refactoring toward clean architecture
+* Centralizing RAG operations into a single service
+* Delegating work to specialized RAG components
+* Maintaining modular and extensible backend architecture
+
+---
+
+## Files Added
+
+```text
+backend/app/services/
+└── rag_service.py
+```
+
+---
+
+## Files Modified
+
+```text
+backend/app/services/
+└── document_service.py
+```
+
+---
+
+## Outcome
+
+At the end of Part 7, the project has a dedicated **RAGService** that serves as the single entry point for all document indexing and semantic retrieval operations. `DocumentService` is now responsible only for document management, while all Retrieval-Augmented Generation responsibilities have been centralized into a dedicated service. This refactoring improves maintainability, follows clean architecture principles, and prepares the backend for future conversational RAG workflows where retrieved document context will be passed to the LLM.

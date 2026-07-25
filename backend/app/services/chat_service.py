@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 
-from app.graph.graph import graph
+from app.graph.graph import create_graph
 from app.repositories.conversation_repository import (
     ConversationRepository,
 )
@@ -25,6 +25,7 @@ class ChatService:
     ):
         self.conversation_repository = conversation_repository
         self.message_repository = message_repository
+        self.db = conversation_repository.db
 
     def create_conversation(
         self,
@@ -159,6 +160,7 @@ class ChatService:
 
 
         try:
+            graph = create_graph(self.db)
             # INVOKE THE LANGGRAPH (AI Pipeline)
             result = graph.invoke(
                 {

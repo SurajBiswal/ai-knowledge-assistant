@@ -9,7 +9,7 @@ from app.repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
 from app.models.document_chunk import DocumentChunk
-
+from app.rag.query_rewriter import QueryRewriter
 
 @dataclass(slots=True)
 class RetrievedChunk:
@@ -29,6 +29,7 @@ class SemanticRetriever:
     ):
         self.repository = repository
         self.embedder = embedder
+        self.query_rewriter = QueryRewriter()
 
     def retrieve(
         self,
@@ -47,12 +48,17 @@ class SemanticRetriever:
             List of DocumentChunk objects ordered by similarity.
         """
 
-        # Generate embedding for the user's question
+        # Rewrite the user's question into a better semantic search query
+        rewritten_query = self.query_rewriter.rewrite_query(question)
+
+        # Generate embedding for the rewritten query
         try:
-            query_embedding = self.embedder.generate_embedding(question)
+            query_embedding = self.embedder.generate_embedding(
+                rewritten_query
+            )
         except Exception as e:
             raise RuntimeError(
-                "Failed to generate embedding for the user query."
+                "Failed to generate embedding for the rewritten query."
             ) from e
 
         # search for the most similar document chunks in the database
