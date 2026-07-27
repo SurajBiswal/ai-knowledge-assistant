@@ -6,6 +6,7 @@ from app.rag.chunker import DocumentChunker
 from app.rag.embedder import GeminiEmbedder
 from app.rag.extractor import DocumentExtractor
 from app.rag.retriever import SemanticRetriever, RetrievedChunk
+from app.rag.context_builder import ContextBuilder
 
 class RAGService:
 
@@ -21,6 +22,7 @@ class RAGService:
         self.chunker = DocumentChunker()
         self.embedder = GeminiEmbedder()
         self.retriever = retriever
+        self.context_builder = ContextBuilder()
 
 
     def index_document(self, document: Document)-> None:
@@ -75,3 +77,57 @@ class RAGService:
             question=question,
             top_k=top_k,
         )
+
+
+
+    def retrieve_context(
+    self,
+    question: str,
+    top_k: int = 5,
+    ) -> str:
+        """
+        Retrieve relevant document chunks and build a structured
+        context string for prompt construction.
+
+        This method orchestrates the retrieval stage of the RAG
+        pipeline by combining the SemanticRetriever and the
+        ContextBuilder.
+
+        Pipeline:
+
+            User Question
+                │
+                ▼
+            SemanticRetriever
+                │
+                ▼
+            List[RetrievedChunk]
+                │
+                ▼
+            ContextBuilder
+                │
+                ▼
+            Structured Context String
+
+        Args:
+            question:
+                User's natural language question.
+
+            top_k:
+                Maximum number of chunks to retrieve.
+
+        Returns:
+            A formatted context string ready to be injected into
+            an LLM prompt.
+        """
+
+        retrieved_chunks = self.retrieve(
+            question=question,
+            top_k=top_k,
+        )
+
+        context = self.context_builder.build_context(
+            retrieved_chunks
+        )
+
+        return context

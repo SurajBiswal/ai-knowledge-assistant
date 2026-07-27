@@ -150,3 +150,104 @@ By the end of Part 1, the RAG pipeline gained a dedicated **Query Rewriter** tha
 
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+# Week 8 – Part 2: Context Builder
+
+## Objective
+
+The goal of Part 2 was to introduce a dedicated **Context Builder** component into the RAG pipeline. This component is responsible for converting the retrieved document chunks into a structured text context that can later be provided to the LLM for grounded response generation.
+
+Unlike the retriever, the Context Builder performs **deterministic formatting only**. It does not retrieve documents, generate embeddings, communicate with Gemini, or produce answers.
+
+---
+
+## Files Created and Updated
+
+### New File
+
+**`backend/app/rag/context_builder.py`**
+
+Implemented the `ContextBuilder` class with the following responsibilities:
+
+* Convert `List[RetrievedChunk]` into a structured context string.
+* Preserve the retrieval order returned by the `SemanticRetriever`.
+* Format each chunk with source metadata (document name, chunk index, and page number).
+* Produce a prompt-ready context string for downstream components.
+
+---
+
+### Updated File
+
+**`backend/app/services/rag_service.py`**
+
+Integrated the `ContextBuilder` into the RAG orchestration layer.
+
+Implemented a new method:
+
+* **`retrieve_context()`**
+
+  * Retrieves the most relevant document chunks using the existing `SemanticRetriever`.
+  * Passes the retrieved chunks to the `ContextBuilder`.
+  * Returns the final structured context string for future prompt construction.
+
+The existing `retrieve()` method was left unchanged so that other components can still access the raw `RetrievedChunk` objects when needed.
+
+---
+
+## Context Format
+
+Each retrieved chunk is formatted consistently using the following structure:
+
+```text
+Source: <document_name>
+Chunk: <chunk_index>
+Page: <page_number>
+
+<chunk_text>
+
+--------------------------------------------------------------------------------
+```
+
+This format provides clear separation between chunks while preserving the original document content and associated metadata.
+
+---
+
+## Testing
+
+A dedicated validation script was created to verify the `ContextBuilder` independently of the database and language model.
+
+The validation covered:
+
+* Multiple retrieved chunks
+* Single retrieved chunk
+* Empty retrieval results
+* Missing metadata
+* Preservation of retrieval order
+* Correct formatting of the generated context
+
+---
+
+## RAG Pipeline After Part 2
+
+```text
+User Question
+        │
+        ▼
+QueryRewriter
+        │
+        ▼
+SemanticRetriever
+        │
+        ▼
+List[RetrievedChunk]
+        │
+        ▼
+ContextBuilder
+        │
+        ▼
+Structured Context String
+```
+
+At the end of Part 2, the project gained a reusable **ContextBuilder** component, a standardized context format, and an orchestration method in `RAGService` that prepares retrieval results for the next stage of the RAG pipeline. The generated context will be consumed by the **Prompt Builder** in Week 8 – Part 3.
