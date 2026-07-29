@@ -126,8 +126,46 @@ class RAGService:
             top_k=top_k,
         )
 
-        context = self.context_builder.build_context(
+        # context = self.context_builder.build_context(
+        #     retrieved_chunks
+        # )
+
+        return self.build_context(
             retrieved_chunks
         )
 
-        return context
+        # return context
+
+
+    def build_context(
+    self,
+    retrieved_chunks: list[RetrievedChunk],
+    ) -> str:
+        """
+        Build a structured context string from already retrieved
+        document chunks.
+
+        This method performs deterministic formatting only.
+        It does NOT perform semantic retrieval.
+
+        Pipeline:
+
+            List[RetrievedChunk]
+                    │
+                    ▼
+            ContextBuilder
+                    │
+                    ▼
+            Structured Context String
+
+        Args:
+            retrieved_chunks:
+                Retrieved document chunks.
+
+        Returns:
+            Prompt-ready context string.
+        """
+
+        return self.context_builder.build_context(
+            retrieved_chunks
+        )

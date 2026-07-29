@@ -6,30 +6,48 @@ from app.rag.retriever import SemanticRetriever
 from app.repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
+from app.repositories.document_repository import (
+    DocumentRepository,
+)
+from app.services.rag_service import RAGService
+
 
 # Factory that creates a RAG node with its dependencies.
 def create_rag_node(db: Session):
 
-    repository = DocumentChunkRepository(db=db)
+    chunk_repository = DocumentChunkRepository(db=db)
+    document_repository = DocumentRepository(db=db)
 
     embedder = GeminiEmbedder()
 
     retriever = SemanticRetriever(
-        repository=repository,
+        repository=chunk_repository,
         embedder=embedder,
     )
+
+    rag_service = RAGService(
+        document_repository=document_repository,
+        chunk_repository=chunk_repository,
+        retriever=retriever,
+    )
+
     # LangGraph RAG node.
     def rag_node(state: ChatState) -> ChatState:
 
         query = state["query"]
 
-        retrieved_docs = retriever.retrieve(
+        retrieved_docs = rag_service.retrieve(
             question=query,
             top_k=5,
         )
 
+        context = rag_service.build_context(
+            retrieved_docs
+        )
+
         return {
             "retrieved_docs": retrieved_docs,
+            "context": context,
         }
 
     return rag_node

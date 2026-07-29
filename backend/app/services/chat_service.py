@@ -106,9 +106,9 @@ class ChatService:
 
 # This method handles sending a user message to the AI model, saving both the user and assistant messages to the database, and returning the assistant's response.
     def send_message(
-        self,
-        conversation_id: UUID,
-        user_message: str,
+    self,
+    conversation_id: UUID,
+    user_message: str,
     ):
         # Fetch the conversation from DB
         conversation = self.get_conversation(
@@ -119,8 +119,8 @@ class ChatService:
             raise ValueError(
                 "Conversation not found"
             )
-        
-        # If this is still a new chat, I should generate a title before continuing.
+
+        # Generate title for a new conversation
         if conversation.title == "New Chat":
             try:
                 generated_title = generate_conversation_title(
@@ -134,7 +134,7 @@ class ChatService:
             except Exception:
                 pass
 
-        # Load previous history BEFORE saving
+        # Load previous history
         history = (
             self.message_repository.get_last_n_messages(
                 conversation_id=conversation_id,
@@ -142,14 +142,14 @@ class ChatService:
             )
         )
 
-        # Save user message to DB immediately 
+        # Save user message
         self.message_repository.create(
             conversation_id=conversation_id,
             role="user",
             content=user_message,
         )
 
-        # Convert database messages into format for AI graph
+        # Convert history for LangGraph
         graph_messages = [
             {
                 "role": msg.role,
@@ -158,26 +158,24 @@ class ChatService:
             for msg in history
         ]
 
-
         try:
             graph = create_graph(self.db)
-            # INVOKE THE LANGGRAPH (AI Pipeline)
+
             result = graph.invoke(
                 {
                     "conversation_id": str(conversation_id),
-                    "message": user_message,
+                    "query": user_message,          # Fixed
                     "messages": graph_messages,
                 }
             )
+
         except Exception as e:
             raise RuntimeError(
                 f"Graph execution failed: {str(e)}"
             )
 
-        # Extract AI response
         assistant_response = result["response"]
 
-        # Save ASSISTANT's message to database
         assistant_message = (
             self.message_repository.create(
                 conversation_id=conversation_id,
@@ -191,11 +189,11 @@ class ChatService:
     # STREAMING: New method that yields AI response chunks in real-time
     # This allows frontend to display text gradually as it's being generated
     def send_message_stream(
-        self,
-        conversation_id: UUID,
-        user_message: str,
+    self,
+    conversation_id: UUID,
+    user_message: str,
     ):
-        # STREAMING: Fetch the conversation from DB
+        # Fetch conversation
         conversation = self.get_conversation(
             conversation_id
         )
@@ -204,7 +202,8 @@ class ChatService:
             raise ValueError(
                 "Conversation not found"
             )
-        
+
+        # Generate title for a new conversation
         if conversation.title == "New Chat":
             try:
                 generated_title = generate_conversation_title(
@@ -218,7 +217,7 @@ class ChatService:
             except Exception:
                 pass
 
-        # STREAMING: Load previous history for context (same as send_message)
+        # Load previous history
         history = (
             self.message_repository.get_last_n_messages(
                 conversation_id=conversation_id,
@@ -226,37 +225,55 @@ class ChatService:
             )
         )
 
-        # STREAMING: Save user message immediately
+        # Save user message
         self.message_repository.create(
             conversation_id=conversation_id,
             role="user",
             content=user_message,
         )
 
-        # STREAMING: Build prompt from history (same logic as chatbot_node)
-        prompt = ""
-        for msg in history:
-            prompt += (
-                f"{msg.role}: "
-                f"{msg.content}\n"
-            )
-        prompt += f"user: {user_message}"
+        # Convert history for LangGraph
+        graph_messages = [
+            {
+                "role": msg.role,
+                "content": msg.content,
+            }
+            for msg in history
+        ]
 
-        # STREAMING: Use full response to collect chunks
-        complete_response = ""
-        
         try:
-            # STREAMING: Call Gemini with streaming enabled
+            graph = create_graph(self.db)
+
+            result = graph.invoke(
+                {
+                    "conversation_id": str(conversation_id),
+                    "query": user_message,          # Fixed
+                    "messages": graph_messages,
+                }
+            )
+
+            # Reuse the grounded prompt built by the graph
+            prompt = result["prompt"]
+
+            print(prompt)
+
+        except Exception as e:
+            raise RuntimeError(
+                f"Graph execution failed: {str(e)}"
+            )
+
+        complete_response = ""
+
+        try:
             for chunk in generate_stream_response(prompt):
                 complete_response += chunk
-                # STREAMING: Yield chunk immediately (frontend receives it)
                 yield chunk
+
         except Exception as e:
             raise RuntimeError(
                 f"Streaming failed: {str(e)}"
             )
 
-        # STREAMING: After streaming completes, save full response to DB
         self.message_repository.create(
             conversation_id=conversation_id,
             role="assistant",

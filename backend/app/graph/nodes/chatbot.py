@@ -1,32 +1,31 @@
 import app.graph.state as chatState
+
+from app.rag.prompt_builder import PromptBuilder
 from app.services.gemini_service import generate_response
+
+
+prompt_builder = PromptBuilder()
 
 
 def chatbot_node(state: chatState):
 
-    # Step 1: Build the prompt from conversation history
-    prompt = ""
+    # Step 1: Read the current user question
+    question = state["query"]
 
-    for msg in state["messages"]:
-        prompt += (
-            f"{msg['role']}: "
-            f"{msg['content']}\n"
-        )
+    # Step 2: Read the formatted RAG context
+    context = state["context"]
 
-    prompt += (
-        f"user: {state['query']}"
+    # Step 3: Build the grounded prompt
+    prompt = prompt_builder.build_prompt(
+        question=question,
+        context=context,
     )
 
-    # Now prompt looks like:
-    # user: Hello
-    # assistant: Hi there!
-    # user: What is Python?
-    
-    # Step 2: Send to Gemini AI and get response
-
+    # Step 4: Generate the AI response
     response = generate_response(prompt)
 
-    # Step 3: Return new state with response
+    # Step 5: Return both prompt and response
     return {
-        "response": response
+        "prompt": prompt,
+        "response": response,
     }

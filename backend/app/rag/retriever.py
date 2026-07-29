@@ -77,7 +77,7 @@ class SemanticRetriever:
                 document_id=chunk.document_id,
                 chunk_index=chunk.chunk_index,
                 chunk_text=chunk.chunk_text,
-                metadata=chunk.metadata,
+                metadata=chunk.chunk_metadata,
                 cosine_distance=cosine_distance,
             )
             for chunk, cosine_distance in results
