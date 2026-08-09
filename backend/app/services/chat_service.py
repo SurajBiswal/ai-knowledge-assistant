@@ -176,11 +176,14 @@ class ChatService:
 
         assistant_response = result["response"]
 
+        sources = result.get("sources", [])
+
         assistant_message = (
             self.message_repository.create(
                 conversation_id=conversation_id,
                 role="assistant",
                 content=assistant_response,
+                sources=sources,
             )
         )
 
@@ -255,6 +258,8 @@ class ChatService:
             # Reuse the grounded prompt built by the graph
             prompt = result["prompt"]
 
+            sources = result.get("sources", [])
+
             print(prompt)
 
         except Exception as e:
@@ -278,4 +283,5 @@ class ChatService:
             conversation_id=conversation_id,
             role="assistant",
             content=complete_response,
+            sources=sources,
         )

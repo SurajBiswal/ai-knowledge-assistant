@@ -90,10 +90,12 @@ class ContextBuilder:
             "Unknown Document",
         )
 
-        page = metadata.get(
-            "page",
-            "Unknown",
-        )
+        # page = metadata.get(
+        #     "page",
+        #     "Unknown",
+        # )
+
+        page = metadata.get("page") or "Unknown"
 
         chunk_text = chunk.chunk_text.strip()
 

@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import TypedDict, Any
 
 from app.rag.retriever import RetrievedChunk
 
@@ -18,6 +18,9 @@ class ChatState(TypedDict):
 
     # Retrieval stage output
     retrieved_docs: list[RetrievedChunk]
+
+    # Citation Builder output
+    sources: list[dict[str, Any]]
 
     # Context Builder output
     context: str

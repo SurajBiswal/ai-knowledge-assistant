@@ -97,22 +97,28 @@ export default function ChatPage({ user, onLogout }) {
       try {
         // STREAMING: Use streaming endpoint instead of waiting for full response
         await sendMessageStream(
-          activeConversationId,
-          text,
-          // STREAMING: Callback that runs for each chunk received from backend
-          (chunk) => {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessageId
-                  ? // STREAMING: Append chunk to existing assistant message
-                    { ...msg, content: msg.content + chunk }
-                  : msg
-              )
-            );
-          }
-        );
-        // Refresh sidebar so generated title appears
-        await loadConversations();
+        activeConversationId,
+        text,
+        (chunk) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? {
+                    ...msg,
+                    content: msg.content + chunk,
+                  }
+                : msg
+            )
+          );
+        }
+      );
+
+      // Reload messages so the saved assistant message
+      // (including sources) replaces the temporary one.
+      await selectConversation(activeConversationId);
+
+      // Refresh sidebar (conversation title)
+      await loadConversations();
       } catch (err) {
         setError({
           message:
@@ -159,6 +165,7 @@ export default function ChatPage({ user, onLogout }) {
         id: msg.id,
         role: msg.role,
         content: msg.content,
+        sources: msg.sources ?? [],
         time: "",
         date: "",
       }))

@@ -28,4 +28,5 @@ def chatbot_node(state: chatState):
     return {
         "prompt": prompt,
         "response": response,
+        "sources": state["sources"],
     }

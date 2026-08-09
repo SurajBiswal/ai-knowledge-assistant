@@ -84,3 +84,16 @@ class DocumentChunkRepository:
         )
         result = self.db.execute(stmt)
         return list(result.all())
+
+    def list_all_chunks(self) -> list[DocumentChunk]:
+        """
+        Return all indexed document chunks.
+
+        Used by BM25Retriever to build the lexical index.
+        """
+
+        return (
+            self.db.query(DocumentChunk)
+            .order_by(DocumentChunk.chunk_index)
+            .all()
+        )

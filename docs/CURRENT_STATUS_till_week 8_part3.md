@@ -80,7 +80,7 @@
 ---
 
 ## Week 7 — RAG Foundation
-- Current week: Week 7 (Current)
+- Current week: Week 7 (Completed)
 - Completed work: Built the core Retrieval-Augmented Generation (RAG) foundation by implementing document chunking, embedding generation, pgvector-based vector storage, semantic retrieval, and LangGraph integration for document retrieval.
 - Current branch: suraj_Ofc
 - Working features:
@@ -106,3 +106,36 @@
   - Inject retrieved document context into the LLM prompt.
   - Generate grounded responses using retrieved document chunks.
   - Add source citations to AI responses.
+
+---
+
+## Week 8 — Grounded RAG Prompting and Context Construction
+- Current week: Week 8 (Completed through Part 4)
+- Completed work: Enhanced the RAG pipeline with query rewriting, context construction, grounded prompt generation, and end-to-end source citation support.
+- Current branch: suraj_Ofc
+- Working features:
+  - Added a dedicated `QueryRewriter` component to improve semantic retrieval by rewriting user questions before embedding generation.
+  - Integrated the query rewriter into `SemanticRetriever` while preserving the existing retrieval interface.
+  - Added `ContextBuilder` to transform retrieved chunks into a structured prompt-ready context.
+  - Added `PromptBuilder` to generate grounded prompts using retrieved document context and the user's question.
+  - Updated the LangGraph chatbot node to generate grounded responses using retrieved context instead of the raw user question.
+  - Extended the LangGraph state to carry context, prompts, and generated source citations.
+  - Added a reusable `CitationBuilder` component to convert retrieved chunks into deterministic document citations.
+  - Updated the RAG node to generate both formatted context and source citations during retrieval.
+  - Updated `ChatService` to persist citations with assistant messages for both streaming and non-streaming conversations.
+  - Updated the frontend chat interface to display supporting document sources beneath generated answers.
+  - Added validation scripts for context generation, grounded prompt generation, and source citation generation.
+- APIs:
+  - No new public API endpoints were introduced.
+  - Existing chat APIs now return assistant messages containing supporting document citations.
+- Database status:
+  - Retrieved document chunks continue to be stored with embeddings and metadata.
+  - Assistant messages now persist structured source citation metadata.
+- Known issues:
+  - Retrieval currently relies on vector similarity only.
+  - Hybrid retrieval and reranking are not yet implemented.
+  - PDF page numbers are currently unavailable for most extracted chunks and appear as `null`.
+- Next task:
+  - Implement Hybrid Search (Vector + Keyword Search).
+  - Introduce document reranking.
+  - Refactor the retrieval pipeline to support hybrid retrieval before context construction.

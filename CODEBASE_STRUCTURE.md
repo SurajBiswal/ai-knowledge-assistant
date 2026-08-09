@@ -13,12 +13,39 @@ ai-knowledge-assistant/
 ├── docs/                     # Project documentation and weekly summaries
 ├── CODEBASE_STRUCTURE.md     # Current repository structure overview
 ├── STREAMING_IMPLEMENTATION.md
-└── README files / notes
+├── .gitignore
+├── .idea/
+└── .venv/
 ```
 
 ---
 
 ## 2. Backend Structure
+
+### 2.0 Compact backend tree
+
+```text
+backend/
+├── app/
+│   ├── api/
+│   │   ├── auth/
+│   │   ├── conversations/
+│   │   └── documents/
+│   ├── core/
+│   ├── database/
+│   ├── graph/
+│   │   └── nodes/
+│   ├── models/
+│   ├── rag/
+│   ├── repositories/
+│   ├── schemas/
+│   └── services/
+├── alembic/
+│   └── versions/
+├── uploads/
+├── tests (root-level Python test files)
+└── requirements.txt
+```
 
 ### 2.1 Root backend files
 
@@ -34,17 +61,26 @@ ai-knowledge-assistant/
 - backend/test_chunker.py
   - Unit tests for text chunking logic.
 
+- backend/test_context_builder.py
+  - Tests for prompt context formatting.
+
 - backend/test_embedder.py
   - Unit tests for embedding generation.
 
+- backend/test_grounded_prompt.py
+  - Tests for grounded prompt construction.
+
 - backend/test_jwt.py
   - Tests for JWT authentication helpers.
+
+- backend/test_query_retrieval.py
+  - Regression tests for query retrieval behavior.
 
 - backend/test_rag_node.py
   - Tests for the RAG graph node behavior.
 
 - backend/test_retriever.py
-  - Run-book retrieval script and regression check for semantic chunk retrieval.
+  - Semantic retrieval tests and retrieval checks.
 
 - backend/uploads/
   - Local storage directory for uploaded documents.
@@ -115,11 +151,20 @@ ai-knowledge-assistant/
 - backend/app/rag/chunker.py
   - Splits long text into smaller overlapping chunks for indexing.
 
+- backend/app/rag/context_builder.py
+  - Formats retrieved chunks into prompt-ready context text.
+
 - backend/app/rag/embedder.py
   - Generates embeddings for text using the configured embedding provider.
 
 - backend/app/rag/extractor.py
   - Extracts text content from uploaded documents for processing.
+
+- backend/app/rag/prompt_builder.py
+  - Builds the grounded prompt sent to the LLM.
+
+- backend/app/rag/query_rewriter.py
+  - Rewrites user questions into stronger retrieval queries.
 
 - backend/app/rag/retriever.py
   - Converts user questions into embeddings and retrieves similar chunks for context grounding.
@@ -210,6 +255,29 @@ ai-knowledge-assistant/
 
 ## 3. Frontend Structure
 
+### 3.0 Compact frontend tree
+
+```text
+frontend/
+├── src/
+│   ├── assets/
+│   ├── components/
+│   │   ├── chat/
+│   │   ├── layout/
+│   │   └── upload/
+│   ├── pages/
+│   ├── services/
+│   ├── App.jsx
+│   ├── App.css
+│   ├── Layout.jsx
+│   ├── index.css
+│   └── main.jsx
+├── public/
+├── index.html
+├── package.json
+└── vite.config.js
+```
+
 ### 3.1 Frontend entry and app shell
 
 - frontend/package.json
@@ -286,6 +354,9 @@ ai-knowledge-assistant/
 - frontend/src/index.css
   - Global CSS entry point.
 
+- frontend/src/assets/
+  - Static images and shared frontend assets.
+
 - frontend/public/
   - Static assets served by Vite.
 
@@ -302,7 +373,7 @@ ai-knowledge-assistant/
 ### 4.2 Chat flow
 1. The user sends a chat message from the frontend.
 2. The conversation API forwards the request to the backend chat service.
-3. The backend may use the graph workflow and RAG retrieval to produce a grounded response.
+3. The backend uses the graph workflow and RAG retrieval to produce a grounded response.
 4. Streaming chunks are sent back to the UI progressively.
 
 ### 4.3 Document upload and indexing flow
@@ -329,6 +400,7 @@ The repository now contains:
 - LangGraph-based orchestration for conversational workflows
 - a React/Vite frontend with login, chat, and document upload features
 - streaming support between the frontend and backend
+- dedicated backend tests for chunking, embeddings, prompts, retrieval, and auth
 
 This structure is intended to serve as a reliable map for navigating the project and understanding how the backend and frontend pieces interact.
 

@@ -251,3 +251,583 @@ Structured Context String
 ```
 
 At the end of Part 2, the project gained a reusable **ContextBuilder** component, a standardized context format, and an orchestration method in `RAGService` that prepares retrieval results for the next stage of the RAG pipeline. The generated context will be consumed by the **Prompt Builder** in Week 8 – Part 3.
+
+
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+# Week 8 – Part 3: Grounded Prompt Generation
+
+## Objective
+
+The objective of Part 3 was to implement the **Grounded Prompt Generation** stage of the Retrieval-Augmented Generation (RAG) pipeline.
+
+After completing semantic retrieval and context construction in the previous parts, this phase focused on preparing a structured prompt that combines the user's question with the retrieved document context before sending it to Gemini. This ensures that the language model generates responses using the retrieved knowledge instead of relying on its own pretrained information.
+
+---
+
+# What Was Implemented
+
+## 1. Prompt Builder Component
+
+A dedicated **PromptBuilder** component was introduced to centralize prompt construction.
+
+**New File**
+
+```
+backend/app/rag/prompt_builder.py
+```
+
+The PromptBuilder is responsible for assembling the final prompt that will be sent to Gemini. It accepts two inputs:
+
+* Retrieved document context
+* User question
+
+and combines them into a consistent prompt template.
+
+The generated prompt includes:
+
+* Assistant role
+* Clear answering instructions
+* Retrieved context
+* User question
+
+This separates prompt generation from the chatbot logic and keeps prompt formatting reusable across the application.
+
+---
+
+## 2. Grounded Prompt Template
+
+A structured prompt template was implemented to enforce grounded answering.
+
+The prompt instructs Gemini to:
+
+* Answer only using the retrieved context.
+* Avoid using outside knowledge.
+* Avoid making assumptions.
+* Return a fallback response when the required information is unavailable.
+* Produce concise and accurate answers.
+
+This ensures every response is generated from the retrieved document chunks instead of the model's pretrained knowledge.
+
+The prompt structure is:
+
+```
+You are an AI Knowledge Assistant.
+
+Instructions...
+
+Context
+=======
+<Retrieved Context>
+
+Question
+========
+<User Question>
+
+Answer:
+```
+
+---
+
+## 3. Integration with the LangGraph Chatbot Node
+
+The chatbot node was updated to use the new PromptBuilder.
+
+**Modified File**
+
+```
+backend/app/graph/nodes/chatbot.py
+```
+
+The chatbot node now performs the following steps:
+
+```
+Retrieved Context
+        │
+        ▼
+PromptBuilder
+        │
+        ▼
+Grounded Prompt
+        │
+        ▼
+Gemini
+        │
+        ▼
+Generated Response
+```
+
+Instead of sending only the user question to Gemini, the chatbot node now constructs a grounded prompt using both the retrieved context and the user question before generating the response.
+
+The generated prompt is also preserved in the graph state for downstream use.
+
+---
+
+## 4. LangGraph State Update
+
+The shared graph state was extended to include the generated prompt.
+
+**Modified File**
+
+```
+backend/app/graph/state.py
+```
+
+A new field was added:
+
+```python
+prompt: str
+```
+
+This allows the generated prompt to be passed between graph nodes and reused during streaming without rebuilding it.
+
+---
+
+## 5. RAG Node Enhancement
+
+The RAG node was updated to use the RAGService for complete retrieval orchestration.
+
+**Modified File**
+
+```
+backend/app/graph/nodes/rag.py
+```
+
+The node now performs:
+
+* Semantic retrieval
+* Context construction
+
+instead of returning only retrieved chunks.
+
+The execution flow is:
+
+```
+User Query
+      │
+      ▼
+Semantic Retriever
+      │
+      ▼
+Retrieved Chunks
+      │
+      ▼
+Context Builder
+      │
+      ▼
+Structured Context
+```
+
+The resulting context is stored in the graph state for prompt generation.
+
+---
+
+## 6. RAG Service Enhancement
+
+The RAGService was extended with dedicated methods to support prompt generation.
+
+**Modified File**
+
+```
+backend/app/services/rag_service.py
+```
+
+The following functionality was added:
+
+### retrieve()
+
+Retrieves the most relevant document chunks using semantic similarity search.
+
+### build_context()
+
+Converts retrieved chunks into a formatted context string.
+
+### retrieve_context()
+
+Provides a higher-level method that performs both retrieval and context construction.
+
+This keeps retrieval logic centralized inside the RAG service.
+
+---
+
+## 7. Streaming Chat Integration
+
+The streaming chat pipeline was updated to use the generated grounded prompt.
+
+**Modified File**
+
+```
+backend/app/services/chat_service.py
+```
+
+The streaming flow now executes the LangGraph pipeline first to produce the grounded prompt.
+
+Instead of rebuilding the prompt manually, the service retrieves the prompt generated by the graph and streams Gemini's response using that prompt.
+
+This ensures that both standard and streaming chat follow the same RAG pipeline.
+
+---
+
+## 8. Metadata Enhancement
+
+Document chunk metadata was enhanced to provide meaningful source information.
+
+**Modified Files**
+
+```
+backend/app/services/rag_service.py
+backend/app/rag/context_builder.py
+backend/app/rag/retriever.py
+```
+
+When indexing document chunks, additional metadata is now stored alongside each chunk:
+
+* Document ID
+* Filename
+* Character start position
+* Character end position
+
+Example:
+
+```json
+{
+    "document_id": "...",
+    "filename": "Technical Documentation for Odisha SSO Integration (Java – JSP & Servlet)_.pdf",
+    "page": null,
+    "char_start": 6301,
+    "char_end": 7233
+}
+```
+
+The ContextBuilder now uses this metadata while formatting retrieved context, allowing document names to appear in the generated prompt.
+
+Example:
+
+```
+Source: Technical Documentation for Odisha SSO Integration (Java – JSP & Servlet)_.pdf
+Page: Unknown
+Chunk: 4
+```
+
+instead of
+
+```
+Source: Unknown Document
+```
+
+---
+
+## 9. Validation Script
+
+A standalone validation script was created to verify the grounded prompt generation stage.
+
+**New File**
+
+```
+backend/test_grounded_prompt.py
+```
+
+The script performs the following steps:
+
+1. Generates an embedding for a test question.
+2. Retrieves the most relevant document chunks.
+3. Builds the formatted context.
+4. Generates the final grounded prompt.
+5. Prints the prompt for inspection.
+
+This allows the prompt generation stage to be validated independently of the API.
+
+---
+
+# Implementation Flow
+
+```
+User Question
+      │
+      ▼
+Semantic Retriever
+      │
+      ▼
+Relevant Document Chunks
+      │
+      ▼
+Context Builder
+      │
+      ▼
+Structured Context
+      │
+      ▼
+Prompt Builder
+      │
+      ▼
+Grounded Prompt
+      │
+      ▼
+Gemini
+      │
+      ▼
+Generated Response
+```
+
+---
+
+# Files Added
+
+```
+backend/app/rag/prompt_builder.py
+
+backend/test_grounded_prompt.py
+```
+
+---
+
+# Files Modified
+
+```
+backend/app/graph/nodes/chatbot.py
+
+backend/app/graph/nodes/rag.py
+
+backend/app/graph/state.py
+
+backend/app/rag/context_builder.py
+
+backend/app/rag/retriever.py
+
+backend/app/services/chat_service.py
+
+backend/app/services/rag_service.py
+```
+
+---
+
+# Outcome
+
+By the end of Week 8 – Part 3, the RAG pipeline was enhanced with a complete grounded prompt generation stage.
+
+The system now:
+
+* Retrieves the most relevant document chunks using semantic search.
+* Builds a structured context from the retrieved chunks.
+* Generates a standardized grounded prompt containing both the retrieved context and the user's question.
+* Sends the grounded prompt to Gemini instead of the raw user query.
+* Includes document metadata such as filenames in the generated context for better traceability.
+* Supports the same grounded prompt generation process for both normal and streaming chat.
+* Provides a standalone validation script to verify the complete prompt generation pipeline.
+
+As a result, responses are generated using the retrieved document context, making the RAG pipeline fully grounded and preparing it for the next stage of development.
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+Week 8 – Part 4: Source Citations
+Objective
+
+The objective of Part 4 was to introduce Source Citations into the Retrieval-Augmented Generation (RAG) pipeline.
+
+After implementing grounded prompt generation, the next step was to make generated responses traceable by exposing the document sources used during retrieval. Instead of returning only the generated answer, the system now returns the answer together with references to the retrieved document chunks that supported the response.
+
+This improves transparency and allows users to understand which uploaded documents contributed to the generated answer.
+
+What Was Implemented
+1. Citation Builder Component
+
+A dedicated CitationBuilder component was implemented to transform retrieved document chunks into structured source references.
+
+New File
+
+backend/app/rag/citation_builder.py
+
+The CitationBuilder is responsible for:
+
+Extracting citation metadata from retrieved document chunks.
+Building deterministic source references.
+Removing duplicate document references.
+Preserving the retrieval order.
+Formatting citations for downstream components.
+
+The component performs deterministic formatting only and does not communicate with Gemini or perform retrieval.
+
+2. LangGraph State Enhancement
+
+The shared LangGraph state was extended to carry generated source citations.
+
+Modified File
+
+backend/app/graph/state.py
+
+A new state field was introduced:
+
+sources: list[dict]
+
+This allows citation information to travel through the graph together with the retrieved context and generated prompt.
+
+3. RAG Node Integration
+
+The LangGraph RAG node was updated to generate source citations after semantic retrieval and context construction.
+
+Modified File
+
+backend/app/graph/nodes/rag.py
+
+The node now performs:
+
+Semantic Retrieval
+        │
+        ▼
+Retrieved Chunks
+        │
+        ├───────────────┐
+        ▼               ▼
+ContextBuilder   CitationBuilder
+        │               │
+        ▼               ▼
+Context         Sources
+
+Both the structured context and generated citations are stored in the graph state for downstream nodes.
+
+4. Chatbot Integration
+
+The chatbot node was updated to expose generated source citations together with the grounded response.
+
+Modified File
+
+backend/app/graph/nodes/chatbot.py
+
+Instead of returning only:
+
+{
+    "response": response
+}
+
+the chatbot now returns:
+
+{
+    "prompt": prompt,
+    "response": response,
+    "sources": sources
+}
+
+This allows the chat service to persist citations alongside the assistant response.
+
+5. Chat Service Enhancement
+
+The chat service was updated to support citation persistence for both normal and streaming conversations.
+
+Modified File
+
+backend/app/services/chat_service.py
+
+The implementation now:
+
+Retrieves citations from the LangGraph output.
+Saves citations together with assistant messages.
+Uses the same citation flow for streaming and non-streaming chat.
+
+This ensures consistent behaviour regardless of how responses are generated.
+
+6. Frontend Citation Display
+
+The chat interface was enhanced to display source citations beneath assistant responses.
+
+Modified Files
+
+frontend/src/components/chat/MessageBubble.jsx
+
+frontend/src/pages/ChatPage.jsx
+
+The frontend now:
+
+Preserves citation information when loading conversations.
+Displays document filenames below generated answers.
+Displays page numbers (when available).
+Displays chunk indices for traceability.
+
+This allows users to see which uploaded documents were used during answer generation.
+
+7. Validation Script
+
+A standalone validation script was created to verify citation generation.
+
+New File
+
+backend/test_source_citations.py
+
+The validation covers:
+
+Retrieved chunk processing.
+Metadata extraction.
+Duplicate removal.
+Citation generation.
+Citation formatting.
+Final response structure.
+Implementation Flow
+User Question
+      │
+      ▼
+Query Rewriter
+      │
+      ▼
+Semantic Retriever
+      │
+      ▼
+Retrieved Chunks
+      │
+      ├───────────────┐
+      ▼               ▼
+Context Builder   Citation Builder
+      │               │
+      ▼               ▼
+Context         Sources
+      │               │
+      └───────┬───────┘
+              ▼
+Prompt Builder
+      │
+      ▼
+Gemini
+      │
+      ▼
+Grounded Answer
+      │
+      ▼
+Answer + Sources
+Files Added
+backend/app/rag/citation_builder.py
+
+backend/test_source_citations.py
+Files Modified
+backend/app/graph/state.py
+
+backend/app/graph/nodes/rag.py
+
+backend/app/graph/nodes/chatbot.py
+
+backend/app/services/chat_service.py
+
+frontend/src/components/chat/MessageBubble.jsx
+
+frontend/src/pages/ChatPage.jsx
+Outcome
+
+By the end of Week 8 – Part 4, the RAG pipeline was enhanced with complete Source Citation support.
+
+The system now:
+
+Generates deterministic citations from retrieved document chunks.
+Removes duplicate document references.
+Carries citations through the LangGraph workflow.
+Persists citations with assistant messages.
+Supports citations for both streaming and non-streaming conversations.
+Displays supporting document references directly in the chat interface.
+Provides a standalone validation script to verify citation generation.
+
+This completes the source attribution stage of the Week 8 RAG pipeline and makes generated answers transparent and traceable.

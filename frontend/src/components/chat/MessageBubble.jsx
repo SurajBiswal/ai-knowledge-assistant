@@ -201,6 +201,44 @@ function CopyButton({ text }) {
   );
 }
 
+
+function Sources({ sources = [] }) {
+  if (!sources.length) return null;
+
+  return (
+    <div className="mt-3 border-t border-slate-200 pt-3">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm">📄</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Sources
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {sources.map((source, index) => (
+          <div
+            key={index}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+          >
+            <div className="font-medium text-slate-800 break-words">
+              {source.filename || "Unknown Document"}
+            </div>
+
+            <div className="mt-1 text-slate-500 flex flex-wrap gap-3">
+              {source.page != null && (
+                <span>Page {source.page}</span>
+              )}
+
+              <span>Chunk {source.chunk_index}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 /** Action bar shown below assistant messages on hover */
 function AssistantActions({ content }) {
   const [liked, setLiked] = useState(null); // null | 'up' | 'down'
@@ -314,13 +352,17 @@ export default function MessageBubble({ message }) {
             }`}
         >
           {isUser ? (
-            // User messages: simple plain text (no markdown needed)
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+              {message.content}
+            </p>
           ) : (
-            // Assistant messages: full markdown rendering
-            <div className="prose-sm prose-slate max-w-none">
-              {renderMarkdown(message.content)}
-            </div>
+            <>
+              <div className="prose-sm prose-slate max-w-none">
+                {renderMarkdown(message.content)}
+              </div>
+
+              <Sources sources={message.sources} />
+            </>
           )}
         </div>
 

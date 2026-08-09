@@ -5,8 +5,9 @@ from app.repositories.document_chunk_repository import DocumentChunkRepository
 from app.rag.chunker import DocumentChunker
 from app.rag.embedder import GeminiEmbedder
 from app.rag.extractor import DocumentExtractor
-from app.rag.retriever import SemanticRetriever, RetrievedChunk
+from app.rag.retriever import RetrievedChunk
 from app.rag.context_builder import ContextBuilder
+from app.rag.hybrid_retriever import HybridRetriever
 
 class RAGService:
 
@@ -14,7 +15,7 @@ class RAGService:
         self,
         document_repository: DocumentRepository,
         chunk_repository: DocumentChunkRepository,
-        retriever: SemanticRetriever,
+        retriever: HybridRetriever,
     )->None:
         self.document_repository = document_repository
         self.chunk_repository = chunk_repository
@@ -43,13 +44,28 @@ class RAGService:
                 embedding = self.embedder.generate_embedding(
                     chunk.chunk_text
                 )
+                metadata = {
+                     "document_id": str(document.id),
+                    "filename": document.filename,
+                    "page": None,
+                    "char_start": chunk.metadata.get("char_start"),
+                    "char_end": chunk.metadata.get("char_end"),
+                }
+
                 document_chunk = DocumentChunk(
                     document_id=document.id,
                     chunk_index=chunk.chunk_index,
                     chunk_text=chunk.chunk_text,
                     embedding=embedding,
-                    chunk_metadata=chunk.metadata
+                    chunk_metadata=metadata,
                 )
+                # document_chunk = DocumentChunk(
+                #     document_id=document.id,
+                #     chunk_index=chunk.chunk_index,
+                #     chunk_text=chunk.chunk_text,
+                #     embedding=embedding,
+                #     chunk_metadata=chunk.metadata
+                # )
                 self.chunk_repository.create(document_chunk)
             document.status = "processed"
             self.document_repository.update(document)
@@ -62,7 +78,7 @@ class RAGService:
         """
         Retrieve the most relevant document chunks for a user question.
 
-        This method delegates semantic search to the SemanticRetriever,
+        This method delegates semantic search to the HybridRetriever,
         which generates the query embedding and performs vector similarity
         search against the indexed document chunks.
 
@@ -90,7 +106,7 @@ class RAGService:
         context string for prompt construction.
 
         This method orchestrates the retrieval stage of the RAG
-        pipeline by combining the SemanticRetriever and the
+        pipeline by combining the HybridRetriever and the
         ContextBuilder.
 
         Pipeline:
@@ -98,7 +114,7 @@ class RAGService:
             User Question
                 │
                 ▼
-            SemanticRetriever
+            HybridRetriever
                 │
                 ▼
             List[RetrievedChunk]
