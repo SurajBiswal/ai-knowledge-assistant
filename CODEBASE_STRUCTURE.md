@@ -1,6 +1,6 @@
 # AI Knowledge Assistant - Codebase Structure
 
-This document reflects the current repository structure after the backend expansion for authentication, chat, document ingestion, retrieval-augmented generation (RAG), and streaming responses.
+This document reflects the current application structure after completion of Weeks 1–8, including authentication, conversation management, document ingestion, semantic retrieval, BM25 retrieval, hybrid search, cross-encoder reranking, grounded prompting, source citations, LangGraph orchestration, and streaming responses.
 
 ---
 
@@ -43,219 +43,555 @@ backend/
 ├── alembic/
 │   └── versions/
 ├── uploads/
-├── tests (root-level Python test files)
+├── alembic.ini
 └── requirements.txt
 ```
 
+> Note: Test files (`backend/test/`, `backend/test_*.py`) exist in the repository but are intentionally excluded from this document, which focuses on application architecture.
+
 ### 2.1 Root backend files
 
-- backend/requirements.txt
+- `backend/requirements.txt`
   - Python dependencies for FastAPI, SQLAlchemy, Alembic, JWT, LangGraph, and Gemini integration.
 
-- backend/alembic.ini
+- `backend/alembic.ini`
   - Alembic configuration for database migrations.
 
-- backend/.env
+- `backend/.env`
   - Environment variables such as database URL, JWT secret, and Gemini API settings.
 
-- backend/test_chunker.py
-  - Unit tests for text chunking logic.
-
-- backend/test_context_builder.py
-  - Tests for prompt context formatting.
-
-- backend/test_embedder.py
-  - Unit tests for embedding generation.
-
-- backend/test_grounded_prompt.py
-  - Tests for grounded prompt construction.
-
-- backend/test_jwt.py
-  - Tests for JWT authentication helpers.
-
-- backend/test_query_retrieval.py
-  - Regression tests for query retrieval behavior.
-
-- backend/test_rag_node.py
-  - Tests for the RAG graph node behavior.
-
-- backend/test_retriever.py
-  - Semantic retrieval tests and retrieval checks.
-
-- backend/uploads/
+- `backend/uploads/`
   - Local storage directory for uploaded documents.
 
-- backend/venv/
-  - Local Python virtual environment.
+---
 
-### 2.2 Application entrypoint
+## 2.2 Application Entry Point
 
-- backend/app/main.py
-  - Initializes the FastAPI app, enables CORS, registers routers, and exposes the health endpoint.
+### `backend/app/main.py`
 
-### 2.3 Core application modules
+Initializes the FastAPI application.
 
-- backend/app/core/config.py
-  - Loads configuration from environment variables.
+Responsibilities include:
 
-- backend/app/core/security.py
-  - Handles password hashing, password verification, JWT creation, and token validation.
+- FastAPI application creation
+- Router registration
+- CORS configuration
+- Application startup configuration
+- Health endpoint
 
-- backend/app/core/dependencies.py
-  - Provides reusable dependencies for authentication and database access.
+---
 
-### 2.4 Database layer
+## 2.3 Core Application Modules
 
-- backend/app/database/base.py
-  - Defines the SQLAlchemy base model used by all ORM entities.
+### `backend/app/core/config.py`
 
-- backend/app/database/session.py
-  - Configures the database session and dependency injection for requests.
+Loads application configuration and environment variables.
 
-### 2.5 Database models
+Includes configuration for:
 
-- backend/app/models/user.py
-  - User model, including authentication and ownership relationships.
+- Database
+- JWT
+- Gemini
+- Application settings
 
-- backend/app/models/conversation.py
-  - Conversation model linking chats to a specific user.
+### `backend/app/core/security.py`
 
-- backend/app/models/message.py
-  - Message model for storing chat content, role, token count, and sources.
+Provides security functionality including:
 
-- backend/app/models/document.py
-  - Document metadata model for uploaded files.
+- Password hashing
+- Password verification
+- JWT creation
+- JWT validation
 
-- backend/app/models/document_chunk.py
-  - Chunk storage model used by the RAG system, including embedding data.
+### `backend/app/core/dependencies.py`
 
-### 2.6 Repositories
+Provides reusable FastAPI dependencies including:
 
-- backend/app/repositories/user_repository.py
-  - User create/read logic.
+- Database session
+- Authenticated user
+- Request-level dependencies
 
-- backend/app/repositories/conversation_repository.py
-  - Conversation creation, lookup, rename, and listing.
+---
 
-- backend/app/repositories/message_repository.py
-  - Message persistence and retrieval.
+## 2.4 Database Layer
 
-- backend/app/repositories/document_repository.py
-  - Document metadata CRUD operations and user-based listing.
+### `backend/app/database/base.py`
 
-- backend/app/repositories/document_chunk_repository.py
-  - Chunk creation, deletion, and semantic search operations.
+Defines the SQLAlchemy declarative base used by application models.
 
-### 2.7 RAG and embedding pipeline
+### `backend/app/database/session.py`
 
-- backend/app/rag/chunker.py
-  - Splits long text into smaller overlapping chunks for indexing.
+Configures SQLAlchemy database sessions and dependency injection.
 
-- backend/app/rag/context_builder.py
-  - Formats retrieved chunks into prompt-ready context text.
+---
 
-- backend/app/rag/embedder.py
-  - Generates embeddings for text using the configured embedding provider.
+## 2.5 Database Models
 
-- backend/app/rag/extractor.py
-  - Extracts text content from uploaded documents for processing.
+### `backend/app/models/user.py`
 
-- backend/app/rag/prompt_builder.py
-  - Builds the grounded prompt sent to the LLM.
+Represents application users and authentication-related data.
 
-- backend/app/rag/query_rewriter.py
-  - Rewrites user questions into stronger retrieval queries.
+### `backend/app/models/conversation.py`
 
-- backend/app/rag/retriever.py
-  - Converts user questions into embeddings and retrieves similar chunks for context grounding.
+Represents conversations owned by users.
 
-### 2.8 LangGraph-based chat workflow
+### `backend/app/models/message.py`
 
-- backend/app/graph/state.py
-  - Defines the chat workflow state structure.
+Stores conversation messages.
 
-- backend/app/graph/graph.py
-  - Builds the execution graph used for conversational processing.
+Messages can contain:
 
-- backend/app/graph/nodes/__init__.py
-  - Package marker for graph nodes.
+- Role
+- Content
+- Sources
+- Timestamps
+- Other message metadata
 
-- backend/app/graph/nodes/chatbot.py
-  - Implements the chatbot node that prepares prompts and interacts with the LLM.
+### `backend/app/models/document.py`
 
-- backend/app/graph/nodes/rag.py
-  - Implements the retrieval-augmented generation step for grounding the response.
+Stores uploaded document metadata.
 
-### 2.9 API layer
+### `backend/app/models/document_chunk.py`
 
-- backend/app/api/__init__.py
-  - API package initializer.
+Stores processed document chunks used by the RAG pipeline.
 
-- backend/app/api/auth/router.py
-  - Authentication endpoints for registration and login.
+Chunk records contain information such as:
 
-- backend/app/api/auth/schemas.py
-  - Pydantic schemas for auth requests and responses.
+- Document reference
+- Chunk index
+- Chunk text
+- Embedding
+- Metadata
 
-- backend/app/api/conversations/router.py
-  - Conversation, message, and streaming chat endpoints.
+---
 
-- backend/app/api/conversations/schemas.py
-  - Schemas for conversation and chat payloads.
+## 2.6 Repository Layer
 
-- backend/app/api/documents/router.py
-  - Document upload, listing, and deletion endpoints.
+### `backend/app/repositories/user_repository.py`
 
-- backend/app/api/documents/schemas.py
-  - Schemas for document upload and response models.
+Handles user persistence and lookup operations.
 
-### 2.10 Services layer
+### `backend/app/repositories/conversation_repository.py`
 
-- backend/app/services/auth_service.py
-  - Business logic for authentication and token-supported user flows.
+Handles conversation persistence including:
 
-- backend/app/services/chat_service.py
-  - Chat orchestration, conversation handling, and streaming logic.
+- Creation
+- Lookup
+- Listing
+- Rename
+- Delete
 
-- backend/app/services/document_service.py
-  - Document upload validation, file storage, and document processing workflow; delegates document indexing to RAGService.
+### `backend/app/repositories/message_repository.py`
 
-- backend/app/services/rag_service.py
-  - Coordinates document extraction, chunking, embedding generation, chunk persistence, and semantic retrieval.
+Handles message persistence and conversation history retrieval.
 
-- backend/app/services/gemini_service.py
-  - Wrapper around Gemini API calls for standard responses, streaming, and title generation.
+### `backend/app/repositories/document_repository.py`
 
-### 2.11 Shared schemas
+Handles document metadata persistence and document operations.
 
-- backend/app/schemas/conversation.py
-  - Shared conversation response models.
+### `backend/app/repositories/document_chunk_repository.py`
 
-- backend/app/schemas/message.py
-  - Shared message response models.
+Handles document chunk persistence and vector similarity search.
 
-### 2.12 Database migrations
+---
 
-- backend/alembic/versions/02c4358a66fc_create_users_conversations_messages.py
-  - Creates the initial users, conversations, and messages tables.
+## 2.7 Document Ingestion and RAG Components
 
-- backend/alembic/versions/1bdfce714bb4_create_document_chunks_table.py
-  - Creates the document chunks table used by RAG.
+### `backend/app/rag/extractor.py`
 
-- backend/alembic/versions/42b59302bcf3_add_hnsw_index_to_document_chunks.py
-  - Adds vector index support for document chunk embeddings.
+Extracts text from supported document formats.
 
-- backend/alembic/versions/45bf79c8461d_add_timestamps_mode_sources.py
-  - Adds timestamp and source-related fields for messages and documents.
+The extracted text becomes the input to the chunking stage.
 
-- backend/alembic/versions/7062d95e0994_create_documents_table.py
-  - Creates the documents table for uploaded file metadata.
+### `backend/app/rag/chunker.py`
+
+Splits extracted document text into smaller overlapping chunks.
+
+The chunks are used as the basic retrieval units.
+
+### `backend/app/rag/embedder.py`
+
+Generates vector embeddings for document chunks and retrieval queries.
+
+The project uses the configured Gemini embedding provider.
+
+---
+
+## 2.8 Retrieval Pipeline
+
+The retrieval architecture evolved from semantic-only retrieval into a multi-stage retrieval pipeline.
+
+Current architecture:
+
+```text
+                    User Question
+                         │
+                         ▼
+                Retrieval Query
+                         │
+             ┌───────────┴───────────┐
+             ▼                       ▼
+      Semantic Retrieval        BM25 Retrieval
+             │                       │
+             └───────────┬───────────┘
+                         ▼
+                  HybridRetriever
+                         │
+                         ▼
+                  Candidate Chunks
+                         │
+                         ▼
+              CrossEncoderReranker
+                         │
+                         ▼
+                  Final Chunks
+                         │
+                         ▼
+                   ContextBuilder
+```
+
+### `backend/app/rag/retriever.py`
+
+Implements **semantic/vector retrieval**.
+
+Responsibilities:
+
+- Generate query embeddings
+- Perform vector similarity search
+- Return `RetrievedChunk` objects
+
+It represents the semantic retrieval component rather than the complete retrieval pipeline.
+
+### `backend/app/rag/bm25_retriever.py`
+
+Implements lexical retrieval using BM25.
+
+Responsibilities:
+
+- Tokenize indexed chunks
+- Build BM25 retrieval data
+- Match lexical query terms
+- Return candidate `RetrievedChunk` objects
+
+BM25 improves retrieval for exact terms, names, identifiers, and keyword-heavy queries.
+
+### `backend/app/rag/hybrid_retriever.py`
+
+Combines semantic retrieval and BM25 retrieval into a single candidate set, which is then passed to the cross-encoder reranker.
+
+Architecture:
+
+```text
+Question
+   │
+   ├───────────────┐
+   ▼               ▼
+Semantic         BM25
+Retriever       Retriever
+   │               │
+   └───────┬───────┘
+           ▼
+        Merge
+           ▼
+    Deduplicated
+     Candidates
+```
+
+The HybridRetriever improves retrieval recall by combining semantic and lexical retrieval signals.
+
+### `backend/app/rag/cross_encoder_reranker.py`
+
+Provides the reranking stage after hybrid retrieval.
+
+Responsibilities:
+
+- Receive candidate `RetrievedChunk` objects
+- Score each candidate against the question
+- Sort candidates according to reranking score
+- Preserve the `RetrievedChunk` output structure
+- Apply the requested top-K limit
+
+It does **not** perform:
+
+- Retrieval
+- Embedding generation
+- Query rewriting
+- Context construction
+- Prompt generation
+
+Architecture:
+
+```text
+Question
+   +
+RetrievedChunk[]
+        │
+        ▼
+ Cross Encoder
+        │
+        ▼
+RetrievedChunk[]
+```
+
+Only the ordering of the candidate chunks is changed.
+
+---
+
+## 2.9 Context and Grounded Generation
+
+### `backend/app/rag/context_builder.py`
+
+Converts final retrieved chunks into structured context suitable for the LLM prompt.
+
+```text
+Final Retrieved Chunks
+        ↓
+ContextBuilder
+        ↓
+Structured Context
+```
+
+### `backend/app/rag/prompt_builder.py`
+
+Constructs the grounded prompt using:
+
+- User question
+- Retrieved document context
+- Grounding instructions
+
+The resulting prompt is passed to the LLM.
+
+### `backend/app/rag/citation_builder.py`
+
+Builds source citation information from retrieved document chunks.
+
+The citations are carried through the graph state and ultimately stored with assistant messages.
+
+### `backend/app/rag/query_rewriter.py`
+
+Transforms the original user question into a retrieval-oriented query when required.
+
+This separates the user's conversational wording from the query used by retrieval components.
+
+---
+
+## 2.10 RAG Service
+
+### `backend/app/services/rag_service.py`
+
+Acts as the main service-level orchestration layer for document processing and retrieval.
+
+**Document indexing responsibilities:**
+
+```text
+Document
+   ↓
+Extract
+   ↓
+Chunk
+   ↓
+Generate Embeddings
+   ↓
+Store Document Chunks
+```
+
+**Retrieval responsibilities:**
+
+```text
+Question
+   ↓
+Retrieve Candidates (Hybrid)
+   ↓
+Rerank Candidates (Cross-Encoder)
+   ↓
+Build Context
+```
+
+The service provides higher-level methods so the rest of the application does not need to directly coordinate the individual RAG components.
+
+---
+
+## 2.11 LangGraph Workflow
+
+### `backend/app/graph/state.py`
+
+Defines the state passed between LangGraph nodes.
+
+The state carries information required by the conversational and RAG pipeline, including:
+
+- User query
+- Conversation information
+- Messages
+- Retrieved documents
+- Context
+- Prompt
+- Sources
+- Generated response
+
+### `backend/app/graph/graph.py`
+
+Builds the LangGraph execution workflow.
+
+The graph connects the RAG and chatbot stages.
+
+### `backend/app/graph/nodes/rag.py`
+
+Implements the RAG graph node.
+
+The RAG node coordinates:
+
+```text
+Question
+   ↓
+RAGService
+   ↓
+Retrieved Documents
+   ↓
+Context
+   ↓
+Sources
+```
+
+The node returns:
+
+```python
+{
+    "retrieved_docs": ...,
+    "context": ...,
+    "sources": ...
+}
+```
+
+Downstream graph nodes consume this state.
+
+### `backend/app/graph/nodes/chatbot.py`
+
+Implements the chatbot generation stage.
+
+The chatbot node consumes the retrieved context and constructs/uses the grounded prompt before generating the answer.
+
+Architecture:
+
+```text
+RAG Node
+   │
+   ├── retrieved_docs
+   ├── context
+   └── sources
+          │
+          ▼
+      Chatbot Node
+          │
+          ▼
+      Grounded Prompt
+          │
+          ▼
+         Gemini
+          │
+          ▼
+       Response
+```
+
+---
+
+## 2.12 API Layer
+
+### Authentication
+
+- `backend/app/api/auth/router.py` — Authentication endpoints for registration and login.
+- `backend/app/api/auth/schemas.py` — Pydantic request/response schemas for authentication.
+
+### Conversations
+
+- `backend/app/api/conversations/router.py` — Conversation and chat endpoints: creation, listing, retrieval, rename, deletion, message retrieval, chat requests, streaming chat responses.
+- `backend/app/api/conversations/schemas.py` — Pydantic schemas for conversation and chat operations.
+
+### Documents
+
+- `backend/app/api/documents/router.py` — Document endpoints for upload, listing, and deletion.
+- `backend/app/api/documents/schemas.py` — Pydantic schemas for document operations.
+
+---
+
+## 2.13 Services Layer
+
+### `backend/app/services/auth_service.py`
+
+Authentication business logic.
+
+### `backend/app/services/chat_service.py`
+
+Coordinates conversation-level chat operations.
+
+Responsibilities include:
+
+- Loading conversation history
+- Saving user messages
+- Executing the LangGraph workflow
+- Saving assistant responses
+- Streaming assistant responses
+- Conversation title generation
+
+### `backend/app/services/document_service.py`
+
+Coordinates document upload and processing.
+
+Responsibilities include:
+
+```text
+Upload
+  ↓
+Store File
+  ↓
+Create Document Record
+  ↓
+RAGService
+  ↓
+Extract
+  ↓
+Chunk
+  ↓
+Embed
+  ↓
+Persist Chunks
+```
+
+### `backend/app/services/rag_service.py`
+
+Coordinates document indexing and the full retrieval pipeline (see section 2.10).
+
+### `backend/app/services/gemini_service.py`
+
+Provides the Gemini integration.
+
+Responsibilities include:
+
+- Standard generation
+- Streaming generation
+- Conversation title generation
+
+---
+
+## 2.14 Shared Schemas
+
+- `backend/app/schemas/conversation.py` — Shared conversation response schemas.
+- `backend/app/schemas/message.py` — Shared message response schemas.
+
+---
+
+## 2.15 Database Migrations
+
+Current migrations (`backend/alembic/versions/`):
+
+- `02c4358a66fc_create_users_conversations_messages.py` — Creates the initial users, conversations, and messages tables.
+- `7062d95e0994_create_documents_table.py` — Creates the documents table.
+- `1bdfce714bb4_create_document_chunks_table.py` — Creates the document chunks table used by RAG.
+- `42b59302bcf3_add_hnsw_index_to_document_chunks.py` — Adds the HNSW vector index used for efficient vector similarity retrieval.
+- `45bf79c8461d_add_timestamps_mode_sources.py` — Adds timestamp, mode, and source-related fields.
 
 ---
 
 ## 3. Frontend Structure
-
-### 3.0 Compact frontend tree
 
 ```text
 frontend/
@@ -280,127 +616,335 @@ frontend/
 
 ### 3.1 Frontend entry and app shell
 
-- frontend/package.json
-  - Defines frontend dependencies and scripts for Vite, React, Axios, and ESLint.
-
-- frontend/vite.config.js
-  - Vite configuration for the development server and build pipeline.
-
-- frontend/index.html
-  - Root HTML entry for the React app.
-
-- frontend/src/main.jsx
-  - Renders the React application into the browser.
-
-- frontend/src/App.jsx
-  - Main application component that manages page routing and auth-aware UI state.
-
-- frontend/src/Layout.jsx
-  - Shared shell layout used across the app.
+- `frontend/package.json` — Defines frontend dependencies and scripts for Vite, React, Axios, and ESLint.
+- `frontend/vite.config.js` — Vite configuration for the development server and build pipeline.
+- `frontend/index.html` — Root HTML entry for the React app.
+- `frontend/src/main.jsx` — Renders the React application into the browser.
+- `frontend/src/App.jsx` — Main application component that manages page routing and auth-aware UI state.
+- `frontend/src/Layout.jsx` — Shared shell layout used across the app.
 
 ### 3.2 Pages
 
-- frontend/src/pages/LoginPage.jsx
-  - Login and registration screen for users.
+- `frontend/src/pages/LoginPage.jsx` — Login and registration screen for users.
+- `frontend/src/pages/ChatPage.jsx` — Main chat page: conversation selection, message rendering, sending messages, streaming assistant responses, conversation management, error handling.
 
-- frontend/src/pages/ChatPage.jsx
-  - Main chat experience including message history and streaming chat UI.
+### 3.3 Chat Components
 
-### 3.3 Components
+- `frontend/src/components/chat/ChatWindow.jsx` — Displays the conversation message list.
+- `frontend/src/components/chat/ChatInput.jsx` — Provides the user message input interface.
+- `frontend/src/components/chat/MessageBubble.jsx` — Renders individual messages.
+- `frontend/src/components/chat/TypingIndicator.jsx` — Provides the typing/loading UI when applicable.
 
-- frontend/src/components/layout/Header.jsx
-  - Top header with app title and logout controls.
+### 3.4 Layout Components
 
-- frontend/src/components/layout/Sidebar.jsx
-  - Sidebar for conversation selection and new chat creation.
+- `frontend/src/components/layout/Header.jsx` — Application header with title and logout controls.
+- `frontend/src/components/layout/Sidebar.jsx` — Conversation navigation and conversation management.
 
-- frontend/src/components/chat/ChatWindow.jsx
-  - Displays the conversation messages and handles scrolling behavior.
+### 3.5 Upload Components
 
-- frontend/src/components/chat/ChatInput.jsx
-  - Input area used to send new messages.
+- `frontend/src/components/upload/FileUpload.jsx` — Document upload UI.
+- `frontend/src/components/upload/DocumentList.jsx` — Displays uploaded documents and provides document management actions.
 
-- frontend/src/components/chat/MessageBubble.jsx
-  - Renders individual messages in the UI.
+### 3.6 Frontend Services
 
-- frontend/src/components/chat/TypingIndicator.jsx
-  - Shows loading or typing states during AI responses.
+- `frontend/src/services/api.js` — Shared Axios instance / API client and authentication headers.
+- `frontend/src/services/authService.js` — Authentication API operations.
+- `frontend/src/services/conversationService.js` — Conversation and chat API operations, including streaming communication with the backend.
+- `frontend/src/services/documentService.js` — Document API operations.
 
-- frontend/src/components/upload/FileUpload.jsx
-  - File selection UI for document uploads.
+### 3.7 Styling and static assets
 
-- frontend/src/components/upload/DocumentList.jsx
-  - Displays uploaded documents and allows deletion.
-
-### 3.4 Frontend services
-
-- frontend/src/services/api.js
-  - Shared Axios instance with base URL and authentication headers.
-
-- frontend/src/services/authService.js
-  - Auth-related requests for login and registration.
-
-- frontend/src/services/conversationService.js
-  - Conversation and message APIs, including streaming support.
-
-- frontend/src/services/documentService.js
-  - Upload, listing, and deletion APIs for documents.
-
-### 3.5 Styling and static assets
-
-- frontend/src/App.css
-  - App-level styles.
-
-- frontend/src/index.css
-  - Global CSS entry point.
-
-- frontend/src/assets/
-  - Static images and shared frontend assets.
-
-- frontend/public/
-  - Static assets served by Vite.
+- `frontend/src/App.css` — App-level styles.
+- `frontend/src/index.css` — Global CSS entry point.
+- `frontend/src/assets/` — Static images and shared frontend assets.
+- `frontend/public/` — Static assets served by Vite.
 
 ---
 
 ## 4. Main Application Workflows
 
-### 4.1 Authentication flow
-1. User enters login or registration details in the frontend.
-2. The frontend calls the auth API in the backend.
-3. The backend validates credentials and issues JWT-based access.
-4. Protected routes then use the token for secure requests.
+### 4.1 Authentication Flow
 
-### 4.2 Chat flow
-1. The user sends a chat message from the frontend.
-2. The conversation API forwards the request to the backend chat service.
-3. The backend uses the graph workflow and RAG retrieval to produce a grounded response.
-4. Streaming chunks are sent back to the UI progressively.
+```text
+User
+ ↓
+Login / Register
+ ↓
+Auth API
+ ↓
+AuthService
+ ↓
+JWT
+ ↓
+Authenticated Requests
+```
 
-### 4.3 Document upload and indexing flow
-1. A user uploads a document through the frontend upload UI.
-2. The backend stores the file locally and records metadata in the database.
-3. The document text is extracted and split into chunks.
-4. Embeddings are generated and stored for semantic retrieval later.
+### 4.2 Document Ingestion Flow
 
-### 4.4 RAG flow
-1. A user asks a question.
-2. The backend retrieves relevant document chunks using vector similarity.
-3. Those chunks are passed into the LLM context.
-4. The response is generated with document-grounded information.
+```text
+User
+ ↓
+Upload Document
+ ↓
+Document API
+ ↓
+DocumentService
+ ↓
+DocumentExtractor
+ ↓
+DocumentChunker
+ ↓
+GeminiEmbedder
+ ↓
+DocumentChunkRepository
+ ↓
+PostgreSQL + pgvector
+```
+
+### 4.3 Retrieval Flow
+
+```text
+User Question
+      ↓
+Retrieval Query
+      ↓
+ ┌────┴─────┐
+ ↓          ↓
+Semantic    BM25
+Retriever   Retriever
+ ↓          ↓
+ └────┬─────┘
+      ↓
+HybridRetriever
+      ↓
+Candidate Chunks
+      ↓
+CrossEncoderReranker
+      ↓
+Final Chunks
+      ↓
+ContextBuilder
+      ↓
+Grounded Context
+```
+
+### 4.4 Grounded Generation Flow
+
+```text
+User Question
+      ↓
+RAG Pipeline
+      ↓
+Retrieved + Reranked Chunks
+      ↓
+ContextBuilder
+      ↓
+Grounded Context
+      ↓
+PromptBuilder
+      ↓
+Grounded Prompt
+      ↓
+Gemini
+      ↓
+Generated Answer
+```
+
+### 4.5 LangGraph RAG Flow
+
+```text
+User Question
+      ↓
+LangGraph
+      ↓
+RAG Node
+      ↓
+RAGService
+      ↓
+HybridRetriever
+      ↓
+CrossEncoderReranker
+      ↓
+ContextBuilder
+      ↓
+Sources
+      ↓
+Chatbot Node
+      ↓
+Grounded Prompt
+      ↓
+Gemini
+      ↓
+Response
+```
+
+### 4.6 Streaming Chat Flow
+
+```text
+Frontend
+   ↓
+ChatPage
+   ↓
+conversationService
+   ↓
+Streaming Chat API
+   ↓
+ChatService
+   ↓
+LangGraph
+   ↓
+RAG + Grounded Prompt
+   ↓
+Gemini Streaming
+   ↓
+Response Chunks
+   ↓
+Frontend
+   ↓
+Incremental Message Rendering
+```
+
+The assistant message is progressively updated as chunks arrive from the backend.
 
 ---
 
-## 5. What the Current Codebase Includes
+## 5. Current Architecture Summary
 
-The repository now contains:
-- a full FastAPI backend with authentication and protected routes
-- conversation and message persistence
-- document upload and metadata management
-- chunking and embedding-based retrieval for RAG
-- LangGraph-based orchestration for conversational workflows
-- a React/Vite frontend with login, chat, and document upload features
-- streaming support between the frontend and backend
-- dedicated backend tests for chunking, embeddings, prompts, retrieval, and auth
+```text
+                    Frontend
+                       │
+                       ▼
+                  FastAPI API
+                       │
+                       ▼
+                 Service Layer
+                       │
+              ┌────────┴────────┐
+              ▼                 ▼
+         ChatService         RAGService
+              │                 │
+              ▼                 ▼
+          LangGraph       Retrieval Pipeline
+                                │
+                 ┌──────────────┴──────────────┐
+                 ▼                             ▼
+        SemanticRetriever                 BM25Retriever
+                 │                             │
+                 └──────────────┬──────────────┘
+                                ▼
+                         HybridRetriever
+                                │
+                                ▼
+                     CrossEncoderReranker
+                                │
+                                ▼
+                         ContextBuilder
+                                │
+                                ▼
+                         PromptBuilder
+                                │
+                                ▼
+                              Gemini
+```
 
-This structure is intended to serve as a reliable map for navigating the project and understanding how the backend and frontend pieces interact.
+---
 
+## 6. Current Capabilities
+
+The current application includes:
+
+- FastAPI backend
+- React/Vite frontend
+- JWT authentication
+- User and conversation management
+- Conversation history persistence
+- Document upload and management
+- PDF/DOCX/TXT document extraction
+- Recursive document chunking
+- Gemini embedding generation
+- PostgreSQL + pgvector storage
+- HNSW vector indexing
+- Semantic retrieval
+- BM25 lexical retrieval
+- Hybrid retrieval
+- Cross-encoder reranking
+- Query rewriting
+- Context construction
+- Grounded prompt construction
+- Source citation generation
+- LangGraph-based RAG orchestration
+- Gemini response generation
+- Gemini streaming responses
+- Frontend incremental streaming rendering
+
+---
+
+## 7. Architecture Evolution
+
+The retrieval architecture evolved across the project as follows.
+
+**Initial RAG:**
+
+```text
+Question
+   ↓
+Semantic Retrieval
+   ↓
+Context
+   ↓
+Gemini
+```
+
+**Hybrid Retrieval:**
+
+```text
+Question
+   ↓
+Semantic + BM25
+   ↓
+Hybrid Retrieval
+   ↓
+Context
+   ↓
+Gemini
+```
+
+**Current Retrieval Architecture (Week 8):**
+
+```text
+Question
+   ↓
+Semantic + BM25
+   ↓
+Hybrid Retrieval
+   ↓
+Candidate Chunks
+   ↓
+Cross-Encoder Reranking
+   ↓
+Final Chunks
+   ↓
+Context
+   ↓
+Grounded Prompt
+   ↓
+Gemini
+   ↓
+Answer
+```
+
+This layered retrieval architecture separates retrieval, reranking, context construction, prompt construction, and generation, allowing each component to evolve independently.
+
+---
+
+## 8. Notes on This Revision
+
+Compared to the previous version of this document, the following changes were made:
+
+- **`RAGService`** description updated — it now coordinates the full retrieval pipeline (hybrid retrieval + reranking + context building), not just extraction/chunking/embedding/semantic retrieval.
+- **`retriever.py`** description narrowed to reflect that it implements semantic/vector retrieval specifically, not the entire retrieval system.
+- **`hybrid_retriever.py`** description expanded to clarify that its candidate output feeds into the cross-encoder reranker.
+- **Reranking stage** (`cross_encoder_reranker.py`) is now reflected in the RAG workflow diagrams, which previously stopped at vector similarity.
+- **RAG flow (section 4)** rewritten to reflect the current multi-stage pipeline (query → hybrid retrieval → reranking → context → grounded prompt → generation), replacing the outdated single-step vector-similarity flow.
+- **`backend/venv/`** removed — not present in the current backend tree (only the project-level `.venv/` exists).
+- **Test files** (`backend/test/`, root-level `test_*.py`) excluded from this document by request; only application architecture is documented here.

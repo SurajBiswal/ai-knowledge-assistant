@@ -831,3 +831,1879 @@ Displays supporting document references directly in the chat interface.
 Provides a standalone validation script to verify citation generation.
 
 This completes the source attribution stage of the Week 8 RAG pipeline and makes generated answers transparent and traceable.
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+# Week 8 – Part 5: Hybrid Search
+
+## Objective
+
+The objective of Part 5 was to improve the retrieval stage of the Retrieval-Augmented Generation (RAG) pipeline by introducing **Hybrid Search**.
+
+Previously, the system relied primarily on **semantic vector search** to retrieve relevant document chunks. While semantic search is effective at understanding the meaning of a query, it can be less effective for exact technical terms such as:
+
+* Class names
+* Method names
+* Error messages
+* Configuration keys
+* Authentication parameters
+* Product-specific terminology
+* Exact keywords
+
+To address this limitation, **BM25 lexical retrieval** was introduced alongside semantic vector retrieval.
+
+The final retrieval architecture combines:
+
+```text
+Semantic Search
+       +
+BM25 Keyword Search
+       ↓
+Hybrid Retrieval
+```
+
+This provides the system with both **semantic understanding** and **exact keyword matching** capabilities.
+
+---
+
+# Architecture
+
+## Previous Retrieval Flow
+
+Before Part 5, retrieval primarily followed:
+
+```text
+User Question
+      │
+      ▼
+Query Rewriter
+      │
+      ▼
+Semantic Retriever
+      │
+      ▼
+Query Embedding
+      │
+      ▼
+Vector Search
+      │
+      ▼
+Retrieved Chunks
+```
+
+This meant that retrieval depended on a single retrieval strategy.
+
+---
+
+## New Hybrid Retrieval Flow
+
+Part 5 introduced a second retrieval strategy using BM25.
+
+```text
+                         User Question
+                              │
+                              ▼
+                       Query Rewriter
+                              │
+                              ▼
+                       Rewritten Query
+                              │
+                 ┌────────────┴────────────┐
+                 │                         │
+                 ▼                         ▼
+        Semantic Retriever           BM25 Retriever
+                 │                         │
+                 ▼                         ▼
+          Vector Search              Keyword Search
+                 │                         │
+                 └────────────┬────────────┘
+                              ▼
+                       Merge Results
+                              │
+                              ▼
+                         Deduplicate
+                              │
+                              ▼
+                        Hybrid Results
+```
+
+The resulting chunks are then passed to the existing RAG pipeline:
+
+```text
+Hybrid Results
+      │
+      ▼
+Context Builder
+      │
+      ▼
+Prompt Builder
+      │
+      ▼
+Grounded Prompt
+      │
+      ▼
+Gemini
+      │
+      ▼
+Grounded Answer
+```
+
+---
+
+# 1. BM25 Retriever
+
+A dedicated **BM25Retriever** component was introduced to provide lexical keyword-based retrieval.
+
+### New File
+
+```text
+backend/app/rag/bm25_retriever.py
+```
+
+The retriever uses the `BM25Okapi` implementation from the `rank_bm25` library.
+
+The BM25 retriever is responsible for:
+
+* Loading document chunks from the repository.
+* Tokenizing chunk text.
+* Building a BM25 index.
+* Searching the index using lexical query matching.
+* Ranking chunks according to BM25 relevance scores.
+* Returning results as the existing `RetrievedChunk` structure.
+
+The BM25 retriever does not:
+
+* Generate embeddings.
+* Perform vector search.
+* Rewrite queries.
+* Build prompts.
+* Communicate with Gemini.
+
+This keeps the BM25 implementation independent from the semantic retrieval layer.
+
+---
+
+# 2. BM25 Tokenization
+
+A lightweight tokenizer was implemented for BM25 retrieval.
+
+The tokenizer:
+
+* Converts text to lowercase.
+* Extracts word tokens.
+* Removes punctuation from the matching process.
+
+For example:
+
+```text
+"JWT authentication works."
+```
+
+is tokenized approximately as:
+
+```text
+["jwt", "authentication", "works"]
+```
+
+This allows lexical matching to work consistently when punctuation or capitalization differs.
+
+---
+
+# 3. BM25 Index Caching
+
+To avoid rebuilding the BM25 index for every search request, the BM25 retriever uses an **in-memory cached index**.
+
+### Initial request
+
+```text
+First Retrieval
+      │
+      ▼
+Load Document Chunks
+      │
+      ▼
+Tokenize Corpus
+      │
+      ▼
+Build BM25 Index
+      │
+      ▼
+Cache Index
+```
+
+### Subsequent requests
+
+```text
+New Retrieval
+      │
+      ▼
+Existing BM25 Index
+      │
+      ▼
+Search
+```
+
+This avoids unnecessary index construction for every query.
+
+A `refresh_index()` method was also implemented so the cached index can be invalidated when document chunks are added, updated, or deleted.
+
+```text
+Document Change
+      │
+      ▼
+refresh_index()
+      │
+      ▼
+Invalidate Cached Index
+      │
+      ▼
+Rebuild on Next Retrieval
+```
+
+This provides a simple foundation for scaling the lexical retrieval component as the document corpus grows.
+
+---
+
+# 4. SemanticRetriever Refactor
+
+The existing semantic retriever was refactored so that **query rewriting is no longer its responsibility**.
+
+### Modified File
+
+```text
+backend/app/rag/retriever.py
+```
+
+The retriever now accepts an already-prepared search query:
+
+```python
+retrieve(
+    query: str,
+    top_k: int = 5,
+)
+```
+
+Its responsibility is now limited to:
+
+```text
+Search Query
+     │
+     ▼
+Gemini Embedding
+     │
+     ▼
+Vector Similarity Search
+     │
+     ▼
+RetrievedChunk[]
+```
+
+This was an important architectural change because query rewriting should happen **once**, before both retrieval strategies.
+
+Instead of:
+
+```text
+Query
+  │
+  ├── Semantic → Rewrite
+  │
+  └── BM25 → Rewrite
+```
+
+the system now follows:
+
+```text
+                Query
+                  │
+                  ▼
+            Query Rewriter
+                  │
+                  ▼
+          Rewritten Query
+             /        \
+            /          \
+           ▼            ▼
+      Semantic          BM25
+```
+
+This prevents duplicate query rewriting and keeps query preprocessing separate from individual retrieval strategies.
+
+---
+
+# 5. HybridRetriever
+
+A new **HybridRetriever** component was introduced to orchestrate both retrieval strategies.
+
+### New File
+
+```text
+backend/app/rag/hybrid_retriever.py
+```
+
+The HybridRetriever is responsible for:
+
+* Rewriting the user query once.
+* Calling the semantic retriever.
+* Calling the BM25 retriever.
+* Combining the results.
+* Removing duplicate chunks.
+* Returning the final hybrid candidate set.
+
+The class was structured into separate responsibilities:
+
+```python
+class HybridRetriever:
+
+    def __init__(...)
+
+    def retrieve(...)
+
+    def _retrieve_semantic(...)
+
+    def _retrieve_bm25(...)
+
+    def _merge_results(...)
+
+    def _deduplicate(...)
+```
+
+This keeps the retrieval orchestration modular and makes the component easier to extend later.
+
+---
+
+# 6. Merge Strategy
+
+The two retrieval strategies produce independent candidate lists:
+
+```text
+Semantic Results
+       +
+BM25 Results
+       │
+       ▼
+Candidate Results
+```
+
+For example:
+
+```text
+Semantic:
+
+Chunk A
+Chunk B
+Chunk C
+Chunk D
+Chunk E
+
+
+BM25:
+
+Chunk B
+Chunk C
+Chunk F
+Chunk G
+Chunk H
+```
+
+After merging:
+
+```text
+A
+B
+C
+D
+E
+B
+C
+F
+G
+H
+```
+
+The duplicate chunks are then removed.
+
+---
+
+# 7. Deduplication
+
+A dedicated deduplication step was implemented.
+
+A chunk is uniquely identified using:
+
+```text
+(document_id, chunk_index)
+```
+
+Therefore, if both semantic search and BM25 return the same chunk:
+
+```text
+Semantic → Document A / Chunk 4
+BM25     → Document A / Chunk 4
+```
+
+the hybrid result contains it only once.
+
+The final candidate set becomes:
+
+```text
+Document A / Chunk 4
+Document A / Chunk 8
+Document B / Chunk 2
+...
+```
+
+This prevents the same document chunk from consuming multiple positions in the hybrid result set.
+
+---
+
+# 8. Score Handling
+
+The semantic and BM25 retrieval strategies produce different types of scores.
+
+Semantic retrieval uses vector similarity/distance, while BM25 produces lexical relevance scores.
+
+Because these scores are not directly comparable, Part 5 does **not** simply perform:
+
+```text
+Semantic Score + BM25 Score
+```
+
+Instead, the two retrieval systems are used to generate a broader **candidate pool**.
+
+```text
+Semantic Candidates
+        +
+BM25 Candidates
+        │
+        ▼
+Merge
+        │
+        ▼
+Deduplicate
+        │
+        ▼
+Hybrid Candidate Set
+```
+
+The final relevance ranking will be handled by the **Cross-Encoder Reranker in Part 6**.
+
+This keeps Part 5 focused specifically on hybrid candidate retrieval.
+
+---
+
+# 9. Dependency Injection and Modularity
+
+The `HybridRetriever` receives the two retrieval strategies through its constructor:
+
+```text
+HybridRetriever
+      │
+      ├── SemanticRetriever
+      │
+      └── BM25Retriever
+```
+
+This avoids tightly coupling the hybrid layer to the construction of the individual retrievers.
+
+The architecture therefore becomes:
+
+```text
+                  HybridRetriever
+                 /               \
+                ▼                 ▼
+       SemanticRetriever     BM25Retriever
+```
+
+This makes it possible to replace or extend either retrieval strategy independently in the future.
+
+---
+
+# 10. RAGService Integration
+
+### Modified File
+
+```text
+backend/app/services/rag_service.py
+```
+
+`RAGService` was updated to use the new `HybridRetriever`.
+
+Previously:
+
+```text
+RAGService
+     │
+     ▼
+SemanticRetriever
+```
+
+The new architecture is:
+
+```text
+RAGService
+     │
+     ▼
+HybridRetriever
+     │
+     ├───────────────┐
+     ▼               ▼
+Semantic           BM25
+```
+
+The rest of the RAG orchestration remains independent of the underlying retrieval implementation.
+
+This means `RAGService` does not need to know whether retrieval uses:
+
+* Semantic search
+* BM25
+* Hybrid search
+* Future retrieval strategies
+
+It simply interacts with the retriever interface.
+
+---
+
+# 11. LangGraph RAG Node Integration
+
+### Modified File
+
+```text
+backend/app/graph/nodes/rag.py
+```
+
+The LangGraph RAG node was updated to construct and inject the required retrieval components.
+
+The dependency flow is now:
+
+```text
+DocumentChunkRepository
+          │
+          ├────────────────┐
+          ▼                ▼
+ SemanticRetriever    BM25Retriever
+          │                │
+          └───────┬────────┘
+                  ▼
+           HybridRetriever
+                  │
+                  ▼
+              RAGService
+                  │
+                  ▼
+             RAG Context
+```
+
+The graph node continues to use the RAG service rather than directly implementing retrieval logic.
+
+This keeps the LangGraph layer focused on orchestration.
+
+---
+
+# 12. End-to-End RAG Flow After Part 5
+
+The complete retrieval and generation pipeline is now:
+
+```text
+                        User Question
+                              │
+                              ▼
+                       Query Rewriter
+                              │
+                              ▼
+                       Rewritten Query
+                              │
+                ┌─────────────┴─────────────┐
+                │                           │
+                ▼                           ▼
+        Semantic Retriever            BM25 Retriever
+                │                           │
+                ▼                           ▼
+         Vector Search                 BM25 Search
+                │                           │
+                └─────────────┬─────────────┘
+                              ▼
+                           Merge
+                              │
+                              ▼
+                         Deduplicate
+                              │
+                              ▼
+                     Hybrid Candidates
+                              │
+                              ▼
+                       Context Builder
+                              │
+                              ▼
+                       Prompt Builder
+                              │
+                              ▼
+                        Grounded Prompt
+                              │
+                              ▼
+                           Gemini
+                              │
+                              ▼
+                       Grounded Answer
+                              │
+                              ▼
+                       Source Citations
+```
+
+---
+
+# 13. Validation
+
+A dedicated validation script was created:
+
+### New File
+
+```text
+backend/test_hybrid_retriever.py
+```
+
+The validation compares the three retrieval approaches:
+
+```text
+Semantic Retrieval
+        │
+        ├──────────────┐
+        │              │
+        ▼              ▼
+     Results          BM25
+                        │
+                        ▼
+                    Results
+        │              │
+        └───────┬──────┘
+                ▼
+        Hybrid Retrieval
+                │
+                ▼
+             Results
+```
+
+The validation was performed using the actual indexed documents in the project.
+
+The tests verified:
+
+* Semantic retrieval results.
+* BM25 retrieval results.
+* Hybrid retrieval results.
+* Result count and `top_k` handling.
+* Duplicate removal.
+* Valid `RetrievedChunk` objects.
+* Hybrid results originating from semantic/BM25 candidates.
+* BM25 contributing unique candidates.
+* Empty/edge-case behaviour.
+
+The validation demonstrated that BM25 contributed unique candidates in addition to semantic retrieval.
+
+Example:
+
+```text
+Semantic candidates : 5
+BM25 candidates     : 5
+Overlap             : 3
+Semantic-only       : 2
+BM25-only           : 2
+Hybrid final        : 5
+```
+
+This confirmed that the two retrieval strategies were producing complementary candidates.
+
+---
+
+# Files Added
+
+```text
+backend/app/rag/bm25_retriever.py
+
+backend/app/rag/hybrid_retriever.py
+
+backend/test_hybrid_retriever.py
+```
+
+### `bm25_retriever.py`
+
+Implements BM25 lexical retrieval and cached BM25 indexing.
+
+### `hybrid_retriever.py`
+
+Coordinates query rewriting, semantic retrieval, BM25 retrieval, merging, and deduplication.
+
+### `test_hybrid_retriever.py`
+
+Validates semantic, BM25, and hybrid retrieval behaviour against the indexed document corpus.
+
+---
+
+# Files Modified
+
+```text
+backend/app/rag/retriever.py
+
+backend/app/services/rag_service.py
+
+backend/app/graph/nodes/rag.py
+```
+
+### `retriever.py`
+
+Refactored `SemanticRetriever` to accept an already-prepared `query` and removed query rewriting responsibility from the semantic retrieval layer.
+
+### `rag_service.py`
+
+Updated retrieval orchestration to use `HybridRetriever`.
+
+### `rag.py`
+
+Updated LangGraph dependency wiring to construct:
+
+```text
+SemanticRetriever
+        +
+BM25Retriever
+        ↓
+HybridRetriever
+```
+
+---
+
+# Outcome
+
+By the end of Week 8 – Part 5, the RAG pipeline was upgraded from **semantic-only retrieval to hybrid retrieval**.
+
+The system now:
+
+* Performs semantic vector retrieval.
+* Performs BM25 keyword retrieval.
+* Rewrites the query once before both retrieval strategies.
+* Builds and caches a BM25 index in memory.
+* Supports BM25 index refresh when the document corpus changes.
+* Combines semantic and lexical retrieval candidates.
+* Removes duplicate document chunks.
+* Preserves a modular `RetrievedChunk` interface.
+* Integrates HybridRetriever into `RAGService`.
+* Integrates hybrid retrieval into the LangGraph RAG node.
+* Validates semantic, BM25, and hybrid retrieval independently.
+* Confirms that BM25 contributes unique candidates to the retrieval pipeline.
+
+The resulting architecture provides a stronger retrieval foundation by combining **semantic understanding with exact lexical matching**.
+
+---
+
+# Part 5 Completion
+
+```text
+Part 5 — Hybrid Search
+
+✅ BM25 Retriever
+✅ BM25 Index Caching
+✅ SemanticRetriever Refactor
+✅ HybridRetriever
+✅ Merge
+✅ Deduplication
+✅ RAGService Integration
+✅ LangGraph Integration
+✅ Validation
+```
+
+The hybrid retrieval stage is now ready for the next stage of the pipeline:
+
+```text
+Hybrid Candidates
+        │
+        ▼
+┌──────────────────────┐
+│ Cross-Encoder        │
+│ Reranker             │
+└──────────────────────┘
+        │
+        ▼
+Final Ranked Results
+```
+
+**Part 6 will introduce the Cross-Encoder Reranker, which will take the broader candidate set produced by Part 5 and perform a more precise relevance ranking before the context is sent to the LLM.**
+
+
+
+
+Yes. I’ll keep this strictly to **what we actually implemented in Part 6 and Part 7**, matching the structure/detail level of your Part 5 document. I’ll avoid claiming anything we discussed but did not implement.
+
+I’ll base it on the Part 5 document you provided and our completed implementation work. 
+
+# Week 8 – Part 6: Cross-Encoder Reranking
+
+## Objective
+
+The objective of Part 6 was to improve the relevance ordering of the candidate chunks produced by **Hybrid Search**.
+
+Part 5 introduced:
+
+```text
+Semantic Search
+      +
+BM25 Search
+      ↓
+Hybrid Candidates
+```
+
+The hybrid retriever intentionally produces a broader candidate pool rather than trying to directly compare semantic and BM25 scores.
+
+Part 6 introduces a **Cross-Encoder Reranker** to perform a second-stage relevance ranking.
+
+The new architecture is:
+
+```text
+Question
+
+   ↓
+
+HybridRetriever
+
+   ↓
+
+Candidate Chunks
+
+   ↓
+
+Cross-Encoder Reranker
+
+   ↓
+
+Final Ranked Chunks
+```
+
+The important design principle is that the reranker does **not retrieve new chunks**.
+
+It only changes the ordering of the existing `RetrievedChunk` objects.
+
+---
+
+# 1. CrossEncoderReranker
+
+A dedicated reusable reranking component was introduced.
+
+### New File
+
+```text
+backend/app/rag/cross_encoder_reranker.py
+```
+
+The component is responsible for:
+
+* Loading the Cross-Encoder model.
+* Receiving the user question.
+* Receiving candidate `RetrievedChunk` objects.
+* Scoring every candidate against the question.
+* Sorting candidates according to Cross-Encoder relevance.
+* Returning the reranked `RetrievedChunk` objects.
+* Preserving the original chunk information.
+
+The component does **not**:
+
+* Perform document retrieval.
+* Generate embeddings.
+* Perform BM25 search.
+* Perform vector search.
+* Rewrite the query.
+* Build context.
+* Generate prompts.
+* Communicate with Gemini.
+
+Its responsibility is limited to reranking.
+
+---
+
+# 2. Cross-Encoder Architecture
+
+The implemented architecture is:
+
+```text
+                    Question
+                       │
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ Cross Encoder   │
+              └─────────────────┘
+                       ▲
+                       │
+                       │
+              RetrievedChunk[]
+                       │
+                       ▼
+                Score Candidates
+                       │
+                       ▼
+                Sort by Score
+                       │
+                       ▼
+              RetrievedChunk[]
+```
+
+The output remains the same data structure.
+
+Only the ordering is changed.
+
+```text
+Before:
+
+Chunk A
+Chunk B
+Chunk C
+
+After:
+
+Chunk B
+Chunk C
+Chunk A
+```
+
+---
+
+# 3. Cross-Encoder Model
+
+The reranker was implemented using the Cross-Encoder model:
+
+```text
+cross-encoder/ms-marco-MiniLM-L-6-v2
+```
+
+The model is downloaded and loaded locally through the Cross-Encoder/transformer stack.
+
+Therefore, after the initial model download, the model can be loaded from the local Hugging Face cache rather than downloading the model on every execution.
+
+The model performs pairwise relevance scoring:
+
+```text
+Question
+   +
+Candidate Chunk
+   ↓
+Cross Encoder
+   ↓
+Relevance Score
+```
+
+This is different from semantic embedding retrieval.
+
+Semantic retrieval compares vector representations, whereas the Cross-Encoder evaluates the question and candidate text together.
+
+---
+
+# 4. Candidate Scoring
+
+Every candidate produced by HybridRetriever is passed through the Cross-Encoder.
+
+For example:
+
+```text
+Question:
+"How does constructor injection work in Spring?"
+
+Candidates:
+
+Chunk A
+Spring Boot applications can be configured using application.properties.
+
+Chunk B
+Spring Security provides authentication and authorization mechanisms.
+
+Chunk C
+Constructor injection is a recommended way to provide dependencies to Spring beans.
+```
+
+The Cross-Encoder evaluates:
+
+```text
+Question + Chunk A
+Question + Chunk B
+Question + Chunk C
+```
+
+and produces relevance scores.
+
+The candidates are then ordered according to those scores.
+
+---
+
+# 5. Reranking Does Not Create New Chunks
+
+An important architectural rule implemented in Part 6 is that the reranker does not create a new retrieval representation.
+
+It receives:
+
+```text
+RetrievedChunk[]
+```
+
+and returns:
+
+```text
+RetrievedChunk[]
+```
+
+Therefore, metadata such as:
+
+```text
+document_id
+chunk_index
+chunk_text
+metadata
+```
+
+remains attached to the same chunk.
+
+This allows later pipeline stages such as:
+
+```text
+ContextBuilder
+CitationBuilder
+```
+
+to continue working with the existing `RetrievedChunk` representation.
+
+---
+
+# 6. RAGService Integration
+
+The reranker was integrated into `RAGService`.
+
+### Modified File
+
+```text
+backend/app/services/rag_service.py
+```
+
+Previously, the retrieval orchestration was:
+
+```text
+retrieve()
+
+    ↓
+
+HybridRetriever
+
+    ↓
+
+Retrieved Chunks
+
+    ↓
+
+build_context()
+```
+
+The new flow became:
+
+```text
+retrieve()
+
+    ↓
+
+HybridRetriever
+
+    ↓
+
+Candidate Chunks
+
+    ↓
+
+CrossEncoderReranker
+
+    ↓
+
+Final Chunks
+
+    ↓
+
+build_context()
+```
+
+`RAGService` now receives the reranker as a dependency:
+
+```text
+RAGService
+   │
+   ├── HybridRetriever
+   │
+   └── CrossEncoderReranker
+```
+
+This keeps the reranking implementation independent from the retrieval implementation.
+
+---
+
+# 7. RAG Retrieval Pipeline After Part 6
+
+The retrieval stage now follows:
+
+```text
+User Question
+      │
+      ▼
+Query Rewriting
+      │
+      ▼
+Rewritten Query
+      │
+      ▼
+HybridRetriever
+      │
+      ├───────────────┐
+      ▼               ▼
+ Semantic            BM25
+ Retriever           Retriever
+      │               │
+      └───────┬───────┘
+              ▼
+           Merge
+              │
+              ▼
+         Deduplicate
+              │
+              ▼
+      Hybrid Candidates
+              │
+              ▼
+   CrossEncoderReranker
+              │
+              ▼
+      Final Ranked Chunks
+              │
+              ▼
+       ContextBuilder
+```
+
+This creates a two-stage retrieval architecture:
+
+```text
+Stage 1
+────────────────────────
+Candidate Retrieval
+
+Semantic + BM25
+       ↓
+Hybrid Candidates
+
+
+Stage 2
+────────────────────────
+Precision Ranking
+
+Cross Encoder
+       ↓
+Final Ranked Results
+```
+
+---
+
+# 8. LangGraph Integration
+
+The LangGraph RAG node was updated so the reranker is constructed and injected into the RAG service.
+
+### Modified File
+
+```text
+backend/app/graph/nodes/rag.py
+```
+
+The dependency graph became:
+
+```text
+DocumentChunkRepository
+          │
+     ┌────┴────┐
+     ▼         ▼
+ Semantic     BM25
+ Retriever   Retriever
+     │         │
+     └────┬────┘
+          ▼
+   HybridRetriever
+          │
+          ▼
+ CrossEncoderReranker
+          │
+          ▼
+      RAGService
+          │
+          ▼
+      RAG Context
+```
+
+The LangGraph state structure remained compatible with the existing pipeline.
+
+The RAG node continues to return:
+
+```python
+{
+    "retrieved_docs": ...,
+    "context": ...,
+    "sources": ...
+}
+```
+
+Therefore, downstream graph nodes did not need to change their retrieval interface.
+
+---
+
+# 9. Top-K Handling
+
+The reranker was implemented so that the final result can respect the requested `top_k`.
+
+For example:
+
+```text
+Hybrid candidates = 10
+
+        ↓
+
+Cross Encoder
+
+        ↓
+
+Top-K = 5
+
+        ↓
+
+Final results = 5
+```
+
+The important distinction is:
+
+```text
+HybridRetriever
+      ↓
+Candidate Pool
+
+CrossEncoderReranker
+      ↓
+Final Top-K
+```
+
+This allows the system to retrieve a broader candidate set before applying more precise relevance ranking.
+
+---
+
+# 10. Metadata Preservation
+
+The reranker preserves the original `RetrievedChunk` information.
+
+For example:
+
+```text
+document_id
+chunk_index
+chunk_text
+metadata
+```
+
+are retained after reranking.
+
+This is important because the same chunks are later used for:
+
+```text
+Context construction
+       +
+Source citation generation
+```
+
+Therefore:
+
+```text
+RetrievedChunk
+      ↓
+Reranking
+      ↓
+Same RetrievedChunk
+```
+
+Only its position in the list changes.
+
+---
+
+# 11. Validation
+
+A dedicated validation script was created.
+
+### New File
+
+```text
+backend/test_cross_encoder.py
+```
+
+The validation covered the major responsibilities of the Cross-Encoder reranking stage.
+
+### Test 1 — Hybrid Candidates
+
+Verified that candidate `RetrievedChunk` objects were available before reranking.
+
+Result:
+
+```text
+PASS - Hybrid candidates generated
+```
+
+### Test 2 — Cross-Encoder Scoring
+
+Verified that the Cross-Encoder successfully processed all candidate chunks.
+
+Result:
+
+```text
+PASS - Cross Encoder processed all candidates
+```
+
+### Test 3 — Score Ordering
+
+Verified that the reranker returned valid ordered `RetrievedChunk` objects.
+
+Result:
+
+```text
+PASS - Reranker returned valid ordered RetrievedChunk objects
+```
+
+### Test 4 — No Chunks Lost
+
+Compared the number of input and output chunks.
+
+Example:
+
+```text
+Original chunks : 3
+Reranked chunks : 3
+```
+
+Result:
+
+```text
+PASS - No chunks were lost
+```
+
+### Test 5 — Duplicate Validation
+
+Verified that reranking did not introduce duplicate chunks.
+
+Result:
+
+```text
+PASS - No duplicates introduced
+```
+
+### Test 6 — Output Type
+
+Verified that every output object remained a `RetrievedChunk`.
+
+Result:
+
+```text
+PASS - Output remains RetrievedChunk
+```
+
+### Test 7 — Top-K Validation
+
+Verified requested top-K behaviour.
+
+Example:
+
+```text
+Requested top_k : 2
+Returned        : 2
+```
+
+Result:
+
+```text
+PASS - Top-K preserved
+```
+
+### Test 8 — Empty Input
+
+Verified that an empty candidate list is handled safely.
+
+Result:
+
+```text
+PASS - Empty candidate list handled
+```
+
+### Test 9 — Metadata Preservation
+
+Verified that metadata survives the reranking process.
+
+Result:
+
+```text
+PASS - Chunk metadata preserved
+```
+
+Final validation result:
+
+```text
+ALL CROSS ENCODER TESTS PASSED
+```
+
+---
+
+# 12. Files Added
+
+```text
+backend/app/rag/cross_encoder_reranker.py
+
+backend/test_cross_encoder.py
+```
+
+### `cross_encoder_reranker.py`
+
+Implements the Cross-Encoder based candidate reranking stage.
+
+### `test_cross_encoder.py`
+
+Validates candidate processing, scoring, ordering, top-K behaviour, duplicate handling, output type, empty input handling, and metadata preservation.
+
+---
+
+# 13. Files Modified
+
+```text
+backend/app/services/rag_service.py
+
+backend/app/graph/nodes/rag.py
+```
+
+### `rag_service.py`
+
+Integrated the Cross-Encoder reranker after HybridRetriever and before context construction.
+
+### `rag.py`
+
+Updated LangGraph dependency wiring to construct:
+
+```text
+SemanticRetriever
+        +
+BM25Retriever
+        ↓
+HybridRetriever
+        ↓
+CrossEncoderReranker
+        ↓
+RAGService
+```
+
+---
+
+# 14. End-to-End Retrieval Flow After Part 6
+
+The complete retrieval pipeline became:
+
+```text
+                         User Question
+                               │
+                               ▼
+                        Query Rewriter
+                               │
+                               ▼
+                       Rewritten Query
+                               │
+                  ┌────────────┴────────────┐
+                  │                         │
+                  ▼                         ▼
+          Semantic Retriever          BM25 Retriever
+                  │                         │
+                  ▼                         ▼
+            Vector Search              BM25 Search
+                  │                         │
+                  └────────────┬────────────┘
+                               ▼
+                            Merge
+                               │
+                               ▼
+                          Deduplicate
+                               │
+                               ▼
+                     Hybrid Candidates
+                               │
+                               ▼
+                  CrossEncoderReranker
+                               │
+                               ▼
+                    Final Ranked Chunks
+                               │
+                               ▼
+                        Context Builder
+                               │
+                               ▼
+                        Prompt Builder
+                               │
+                               ▼
+                      Grounded Prompt
+                               │
+                               ▼
+                            Gemini
+                               │
+                               ▼
+                       Grounded Answer
+                               │
+                               ▼
+                       Source Citations
+```
+
+---
+
+# Part 6 Completion
+
+```text
+Part 6 — Cross-Encoder Reranking
+
+✅ CrossEncoderReranker
+
+✅ Cross-Encoder model loading
+
+✅ Candidate scoring
+
+✅ Candidate reranking
+
+✅ Top-K handling
+
+✅ RetrievedChunk preservation
+
+✅ Metadata preservation
+
+✅ RAGService integration
+
+✅ LangGraph integration
+
+✅ Validation
+```
+
+---
+
+# Week 8 – Part 7: Retrieval Pipeline Refactor
+
+## Objective
+
+Part 7 focused on making the retrieval orchestration in `RAGService` follow the complete retrieval pipeline explicitly.
+
+The target architecture was:
+
+```text
+Rewrite Query
+      │
+      ▼
+Retrieve Chunks
+      │
+      ▼
+Rerank
+      │
+      ▼
+Build Context
+      │
+      ▼
+Return Context
+```
+
+Instead of treating retrieval as only:
+
+```text
+retrieve()
+```
+
+the RAG service now represents the retrieval pipeline as multiple explicit stages.
+
+---
+
+# 1. Retrieval Pipeline Responsibilities
+
+The retrieval flow is separated into the following stages:
+
+```text
+Question
+   │
+   ▼
+Query Preparation
+   │
+   ▼
+Hybrid Retrieval
+   │
+   ▼
+Candidate Chunks
+   │
+   ▼
+Cross-Encoder Reranking
+   │
+   ▼
+Final Chunks
+   │
+   ▼
+Context Construction
+```
+
+Each stage has a specific responsibility.
+
+---
+
+# 2. Hybrid Retrieval
+
+The first retrieval stage remains the `HybridRetriever`.
+
+```text
+Question
+   │
+   ▼
+HybridRetriever
+   │
+   ├── Semantic Retrieval
+   │
+   └── BM25 Retrieval
+   │
+   ▼
+Hybrid Candidates
+```
+
+This stage is responsible for finding a broad set of potentially relevant chunks.
+
+---
+
+# 3. Cross-Encoder Reranking
+
+The candidate chunks generated by HybridRetriever are then passed to the reranker.
+
+```text
+Hybrid Candidates
+       │
+       ▼
+CrossEncoderReranker
+       │
+       ▼
+Final Ranked Chunks
+```
+
+This provides the precision stage after broad candidate retrieval.
+
+---
+
+# 4. Context Construction
+
+After reranking, only the final ranked chunks are passed to the `ContextBuilder`.
+
+```text
+Final Ranked Chunks
+       │
+       ▼
+ContextBuilder
+       │
+       ▼
+Structured Context
+```
+
+This ensures that the most relevant chunks are used when constructing the LLM context.
+
+---
+
+# 5. RAGService as the Retrieval Orchestrator
+
+The responsibility of `RAGService` is now clearer.
+
+It coordinates:
+
+```text
+HybridRetriever
+        ↓
+CrossEncoderReranker
+        ↓
+ContextBuilder
+```
+
+while individual components remain responsible for their own tasks.
+
+The resulting architecture is:
+
+```text
+                   RAGService
+                       │
+          ┌────────────┼────────────┐
+          │            │            │
+          ▼            ▼            ▼
+      Retriever      Reranker   ContextBuilder
+          │            │            │
+          ▼            ▼            ▼
+       Candidates   Ranked       Context
+```
+
+This keeps the retrieval pipeline modular.
+
+---
+
+# 6. Existing Interface Preservation
+
+The refactor was designed to avoid changing the external graph interface.
+
+The graph continues to receive the same retrieval output:
+
+```python
+{
+    "retrieved_docs": ...,
+    "context": ...,
+    "sources": ...
+}
+```
+
+Therefore downstream components do not need to understand the internal retrieval implementation.
+
+The graph remains responsible for orchestration, while `RAGService` handles the retrieval pipeline.
+
+---
+
+# 7. Final Retrieval Architecture
+
+After Parts 5, 6 and 7, the retrieval architecture is:
+
+```text
+                         User Question
+                               │
+                               ▼
+                        Query Rewriting
+                               │
+                               ▼
+                       Rewritten Query
+                               │
+                               ▼
+                      HybridRetriever
+                       /            \
+                      /              \
+                     ▼                ▼
+             Semantic Search      BM25 Search
+                     \                /
+                      \              /
+                       ▼            ▼
+                           Merge
+                             │
+                             ▼
+                        Deduplicate
+                             │
+                             ▼
+                     Candidate Chunks
+                             │
+                             ▼
+                  CrossEncoderReranker
+                             │
+                             ▼
+                     Final Ranked Chunks
+                             │
+                             ▼
+                      ContextBuilder
+                             │
+                             ▼
+                     Structured Context
+                             │
+                             ▼
+                       PromptBuilder
+                             │
+                             ▼
+                      Grounded Prompt
+                             │
+                             ▼
+                           Gemini
+                             │
+                             ▼
+                      Grounded Answer
+                             │
+                             ▼
+                       Source Citations
+```
+
+This represents the final retrieval architecture implemented during Week 8.
+
+---
+
+# Part 7 Completion
+
+```text
+Part 7 — Retrieval Pipeline Refactor
+
+✅ Retrieval orchestration structured around RAGService
+
+✅ Hybrid retrieval remains the candidate generation stage
+
+✅ Cross-Encoder remains the reranking stage
+
+✅ ContextBuilder receives final ranked chunks
+
+✅ Retrieval responsibilities remain separated
+
+✅ Existing graph output structure preserved
+```
+
+---
+
+# Week 8 — Parts 6 & 7 Outcome
+
+At the end of Parts 6 and 7, the retrieval pipeline evolved from:
+
+```text
+Semantic Retrieval
+        ↓
+Context
+```
+
+to:
+
+```text
+Semantic Retrieval
+        +
+BM25 Retrieval
+        ↓
+Hybrid Candidates
+        ↓
+Cross-Encoder Reranking
+        ↓
+Final Ranked Chunks
+        ↓
+Context Construction
+        ↓
+Grounded Prompt
+        ↓
+Gemini
+        ↓
+Grounded Answer
+        ↓
+Source Citations
+```
+
+The major architectural improvement is the separation between **candidate retrieval** and **precision reranking**:
+
+```text
+                RETRIEVAL STAGE
+                     │
+        ┌────────────┴────────────┐
+        ▼                         ▼
+    Semantic                     BM25
+        │                         │
+        └────────────┬────────────┘
+                     ▼
+              Hybrid Candidates
+                     │
+                     ▼
+             RERANKING STAGE
+                     │
+                     ▼
+            Cross-Encoder
+                     │
+                     ▼
+            Final Ranked Chunks
+                     │
+                     ▼
+             CONTEXT STAGE
+                     │
+                     ▼
+              ContextBuilder
+```
+
+This gives the RAG system a proper **two-stage retrieval architecture**: broad candidate generation followed by precise relevance ranking.
