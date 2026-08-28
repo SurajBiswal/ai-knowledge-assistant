@@ -55,8 +55,8 @@ class RAGService:
         self,
         document_repository: DocumentRepository,
         chunk_repository: DocumentChunkRepository,
-        retriever: HybridRetriever,
-        reranker: CrossEncoderReranker,
+        retriever: HybridRetriever | None = None,
+        reranker: CrossEncoderReranker | None = None,
     ) -> None:
 
         self.document_repository = document_repository
@@ -197,6 +197,16 @@ class RAGService:
 
         if top_k <= 0:
             return []
+
+        if self.retriever is None:
+            raise RuntimeError(
+                "RAGService retrieval is not configured."
+            )
+
+        if self.reranker is None:
+            raise RuntimeError(
+                "RAGService reranker is not configured."
+            )
 
         # Retrieve more candidates than the final number.
         # The reranker needs a larger candidate pool to choose

@@ -20,7 +20,7 @@ class DocumentService:
         self.rag_service = RAGService(
             document_repository=document_repository,
             chunk_repository=chunk_repository,
-            retriever=None  # Placeholder, replace with actual retriever if needed
+            # retriever=None  # Placeholder, replace with actual retriever if needed
         )
 
     def _create_upload_directory(self) -> None:
