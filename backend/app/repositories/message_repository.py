@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import Any
 
 from app.models.message import Message
-
+from app.models.conversation import Conversation
 
 class MessageRepository:
 
@@ -73,3 +73,16 @@ class MessageRepository:
         messages = list(result.scalars().all())
 
         return list(reversed(messages))
+
+    def count_by_user(self, user_id: UUID) -> int:
+        """Return the number of messages in a user's conversations."""
+        from sqlalchemy import func
+
+        stmt = (
+            select(func.count())
+            .select_from(Message)
+            .join(Conversation, Message.conversation_id == Conversation.id)
+            .where(Conversation.user_id == user_id)
+        )
+
+        return int(self.db.execute(stmt).scalar_one())

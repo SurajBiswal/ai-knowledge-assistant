@@ -20,9 +20,9 @@ let nextId = 1;
 /** Inline error banner shown inside the chat stream */
 function ErrorBanner({ message, onDismiss }) {
   return (
-    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700 shadow-sm">
+    <div className="flex items-start gap-3 px-4 py-3 rounded-md bg-clay-tint border border-clay/30 text-sm text-clay-dark shadow-sm">
       <svg
-        className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-500"
+        className="w-4 h-4 flex-shrink-0 mt-0.5 text-clay"
         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
       >
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -31,7 +31,7 @@ function ErrorBanner({ message, onDismiss }) {
       <span className="flex-1">{message}</span>
       <button
         onClick={onDismiss}
-        className="flex-shrink-0 text-rose-400 hover:text-rose-600 transition-colors"
+        className="flex-shrink-0 text-clay/70 hover:text-clay transition-colors"
         aria-label="Dismiss error"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -53,6 +53,7 @@ export default function ChatPage({ user, onLogout }) {
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // true from send until first streamed chunk arrives
   const [error, setError] = useState(null);       // { message: string } | null
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
@@ -78,53 +79,62 @@ export default function ChatPage({ user, onLogout }) {
       }
 
       // STREAMING: Add user message to UI immediately
-      const userMessageId = crypto.randomUUID();
       appendMessage("user", text);
 
-      // STREAMING: Create empty assistant message that will be updated with chunks
+      // STREAMING: Show the typing indicator until the first chunk arrives —
+      // the assistant bubble itself is only created once there's content,
+      // so no empty bubble flashes before generation starts.
       const assistantMessageId = crypto.randomUUID();
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: assistantMessageId,
-          role: "assistant",
-          content: "", // STREAMING: Empty initially, will be filled with chunks
-        },
-      ]);
-
-      setIsLoading(false); // STREAMING: No loading spinner - message updates in real-time
+      let bubbleCreated = false;
+      setIsGenerating(true);
+      setIsLoading(false); // STREAMING: no separate loading spinner - handled via isGenerating
 
       try {
         // STREAMING: Use streaming endpoint instead of waiting for full response
         await sendMessageStream(
-        activeConversationId,
-        text,
-        (chunk) => {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? {
-                    ...msg,
-                    content: msg.content + chunk,
-                  }
-                : msg
-            )
-          );
-        }
-      );
+          activeConversationId,
+          text,
+          (chunk) => {
+            if (!bubbleCreated) {
+              bubbleCreated = true;
+              setIsGenerating(false);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: assistantMessageId,
+                  role: "assistant",
+                  content: chunk,
+                },
+              ]);
+            } else {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? {
+                        ...msg,
+                        content: msg.content + chunk,
+                      }
+                    : msg
+                )
+              );
+            }
+          }
+        );
 
-      // Reload messages so the saved assistant message
-      // (including sources) replaces the temporary one.
-      await selectConversation(activeConversationId);
+        // Reload messages so the saved assistant message
+        // (including sources) replaces the temporary one.
+        await selectConversation(activeConversationId);
 
-      // Refresh sidebar (conversation title)
-      await loadConversations();
+        // Refresh sidebar (conversation title)
+        await loadConversations();
       } catch (err) {
         setError({
           message:
             err?.message ??
             "Failed to send message",
         });
+      } finally {
+        setIsGenerating(false);
       }
     },
     [activeConversationId, appendMessage]
@@ -218,8 +228,21 @@ export default function ChatPage({ user, onLogout }) {
     }
   };
 
+  const activeConversation = conversations.find(
+    (c) => c.id === activeConversationId
+  );
+  const headerTitle = activeConversation?.title || "New conversation";
+
+  const groundedDocCount = new Set(
+    messages.flatMap((m) => (m.sources || []).map((s) => s.filename))
+  ).size;
+  const headerSubtitle =
+    groundedDocCount > 0
+      ? `Grounded in ${groundedDocCount} document${groundedDocCount > 1 ? "s" : ""}`
+      : "Ask anything — I'll find the best answer";
+
   return (
-    <div className="flex h-screen overflow-hidden bg-white font-sans">
+    <div className="flex h-screen overflow-hidden bg-paper font-sans">
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -244,14 +267,16 @@ export default function ChatPage({ user, onLogout }) {
       {/* Main column */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Header */}
-        <Header onMenuToggle={() => setSidebarOpen((v) => !v)} />
-
-        
+        <Header
+          onMenuToggle={() => setSidebarOpen((v) => !v)}
+          title={headerTitle}
+          subtitle={headerSubtitle}
+        />
 
         {/* Messages — grows to fill available space */}
         <ChatWindow
           messages={messages}
-          isTyping={isLoading}
+          isLoading={isGenerating}
           className="flex-1 min-h-0"
         />
 

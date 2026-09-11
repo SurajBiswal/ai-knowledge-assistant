@@ -1,1 +1,146 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+/*
+  KnowledgeAI — "Nightfall" design system
+  Inspired by modern AI-product marketing sites (bold geometric display
+  type, near-black surfaces, a single confident violet accent). Sidebar
+  reads as a dark console (ink); the content area switches between a
+  clean light surface and a near-black "night" surface via the .dark
+  class on <html>. Token *names* are unchanged from the previous theme
+  so every component keeps working without edits — only the values and
+  fonts changed.
+*/
+
+@theme {
+  /* Sidebar / "console" — constant across themes */
+  --color-ink: #0d0d12;
+  --color-ink-soft: #17171c;
+  --color-ink-softer: #232329;
+  --color-paper-100: #f5f5f7;
+  --color-paper-400: #8b8b96;
+
+  /* Content surfaces — flip in dark mode, see html.dark below */
+  --color-paper: #fbfbfd;
+  --color-paper-dim: #f4f4f7;
+  --color-paper-line: #e5e5ea;
+  --color-surface: #ffffff;
+
+  /* Text on content surfaces — flip in dark mode */
+  --color-ink-900: #0d0d12;
+  --color-ink-600: #52525b;
+  --color-ink-400: #8b8b96;
+
+  /* Accents */
+  --color-moss: #4f46e5;
+  --color-moss-dark: #4338ca;
+  --color-moss-tint: #eef2ff;
+  --color-mustard: #7c3aed;
+  --color-mustard-dark: #6d28d9;
+  --color-mustard-tint: #f3e8ff;
+  --color-clay: #e11d48;
+  --color-clay-dark: #be123c;
+  --color-clay-tint: #ffe4e6;
+
+  /* Type */
+  --font-display: "Space Grotesk", "Inter", sans-serif;
+  --font-sans: "Inter", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────────────
+   Overriding the same variable names means every component that already
+   uses bg-paper / text-ink-900 / bg-surface etc. adapts automatically —
+   no per-component dark: classes required. */
+html.dark {
+  color-scheme: dark;
+  --color-paper: #0a0a0d;
+  --color-paper-dim: #131316;
+  --color-paper-line: #232329;
+  --color-surface: #18181c;
+
+  --color-ink-900: #f5f5f7;
+  --color-ink-600: #a1a1aa;
+  --color-ink-400: #71717a;
+
+  --color-moss: #818cf8;
+  --color-moss-dark: #6366f1;
+  --color-moss-tint: #1e1b4b;
+
+  --color-mustard: #8b5cf6;
+  --color-mustard-dark: #7c3aed;
+  --color-mustard-tint: #2e1065;
+
+  --color-clay: #fb7185;
+  --color-clay-dark: #f43f5e;
+  --color-clay-tint: #4c0519;
+}
+
+html {
+  color-scheme: light;
+  font-family: var(--font-sans);
+}
+
+html,
+body,
+#root {
+  background-color: var(--color-paper);
+}
+
+body {
+  transition: background-color 150ms ease;
+}
+
+/* Subtle violet glow in dark mode — a quiet nod to the AI-product look
+   this theme is inspired by, without any layout or functional change. */
+html.dark body {
+  background-image:
+    radial-gradient(ellipse 900px 600px at 100% 0%, rgba(139, 92, 246, 0.10), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 0% 100%, rgba(79, 70, 229, 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: var(--color-mustard-tint);
+  color: var(--color-ink-900);
+}
+
+/* Slim scrollbars instead of default chrome */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-paper-line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-paper-line);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Keyboard focus stays visible and simple for buttons/links; text inputs
+   opt out below (they use a border-color highlight instead) — this rule
+   is intentionally more specific than the bare :focus-visible above so it
+   actually wins the cascade. */
+:focus-visible {
+  outline: 2px solid var(--color-moss);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+/* Plain text inputs / textareas: a calm border-color change on focus,
+   no glow ring, no box. */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea {
+  outline: none;
+}

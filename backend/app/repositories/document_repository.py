@@ -63,5 +63,15 @@ class DocumentRepository:
         self.db.commit()
         self.db.refresh(document)
         return document
-    
-    
+
+    def count_by_user(self, user_id: UUID) -> int:
+        """Return the number of documents owned by a user."""
+        from sqlalchemy import func
+
+        stmt = (
+            select(func.count())
+            .select_from(Document)
+            .where(Document.user_id == user_id)
+        )
+
+        return int(self.db.execute(stmt).scalar_one())

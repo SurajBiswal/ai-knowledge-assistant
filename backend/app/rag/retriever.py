@@ -30,6 +30,7 @@ class SemanticRetriever:
     def retrieve(
         self,
         query: str,
+        user_id: str,
         top_k: int = 5,
     ) -> list[RetrievedChunk]:
         
@@ -67,6 +68,7 @@ class SemanticRetriever:
         try:
             results = self.repository.search_similar(
                 query_embedding=query_embedding,
+                user_id=user_id,
                 top_k=top_k,
             )
 

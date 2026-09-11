@@ -93,3 +93,15 @@ class ConversationRepository:
         self.db.commit()
 
         return True
+
+    def count_by_user(self, user_id: UUID) -> int:
+        """Return the number of conversations owned by a user."""
+        from sqlalchemy import func
+
+        stmt = (
+            select(func.count())
+            .select_from(Conversation)
+            .where(Conversation.user_id == user_id)
+        )
+
+        return int(self.db.execute(stmt).scalar_one())

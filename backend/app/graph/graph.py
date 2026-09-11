@@ -1,40 +1,113 @@
 from sqlalchemy.orm import Session
 
-from langgraph.graph import START, END
-from langgraph.graph import StateGraph
+from langgraph.graph import (
+    END,
+    START,
+    StateGraph,
+)
 
+from app.graph.nodes.agent import (
+    create_agent_node,
+)
+from app.graph.nodes.tools import (
+    create_tool_node,
+)
+from app.graph.routing import (
+    should_use_tool,
+)
 from app.graph.state import ChatState
-from app.graph.nodes.chatbot import chatbot_node
-from app.graph.nodes.rag import create_rag_node
 
 
-def create_graph(db: Session):
+def create_graph(
+    db: Session,
+):
+    """
+    Create the Part 7 LangGraph tool-calling workflow.
 
-    builder = StateGraph(ChatState)
+    Architecture:
+
+                        START
+                          │
+                          ▼
+                      Agent Node
+                          │
+                          ▼
+                    Tool needed?
+                      /      \
+                    No        Yes
+                    │          │
+                    ▼          ▼
+                   END      Tool Node
+                                │
+                                ▼
+                            Agent Node
+                                │
+                                ▼
+                          Tool needed?
+                              │
+                         ┌────┴────┐
+                         │         │
+                        Yes        No
+                         │         │
+                         ▼         ▼
+                      Tool Node   END
+
+    Gemini decides whether a tool is required.
+
+    LangGraph controls routing and execution flow.
+    """
+
+    builder = StateGraph(
+        ChatState
+    )
+
+    # ---------------------------------------------------------
+    # Nodes
+    # ---------------------------------------------------------
 
     builder.add_node(
-        "rag",
-        create_rag_node(db),
+        "agent",
+        create_agent_node(
+            db=db,
+        ),
     )
 
     builder.add_node(
-        "chatbot",
-        chatbot_node,
+        "tools",
+        create_tool_node(
+            db=db,
+        ),
     )
+
+    # ---------------------------------------------------------
+    # START → Agent
+    # ---------------------------------------------------------
 
     builder.add_edge(
         START,
-        "rag",
+        "agent",
     )
 
-    builder.add_edge(
-        "rag",
-        "chatbot",
+    # ---------------------------------------------------------
+    # Agent → conditional route
+    # ---------------------------------------------------------
+
+    builder.add_conditional_edges(
+        "agent",
+        should_use_tool,
+        {
+            "tools": "tools",
+            "end": END,
+        },
     )
 
+    # ---------------------------------------------------------
+    # Tool Node → Agent
+    # ---------------------------------------------------------
+
     builder.add_edge(
-        "chatbot",
-        END,
+        "tools",
+        "agent",
     )
 
     return builder.compile()

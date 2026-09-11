@@ -177,6 +177,7 @@ class RAGService:
     def retrieve(
     self,
     question: str,
+    user_id: str,
     top_k: int = 5,
     ) -> list[RetrievedChunk]:
         """
@@ -215,6 +216,7 @@ class RAGService:
 
         candidate_chunks = self.retriever.retrieve(
             question=question,
+            user_id=user_id,
             top_k=candidate_k,
         )
 

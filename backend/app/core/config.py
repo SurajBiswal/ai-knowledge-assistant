@@ -7,6 +7,8 @@ load_dotenv()
 class Settings:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+    TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
     JWT_SECRET_KEY = os.getenv(
         "JWT_SECRET_KEY"
     )

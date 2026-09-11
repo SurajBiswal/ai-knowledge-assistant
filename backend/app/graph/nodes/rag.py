@@ -109,6 +109,7 @@ def create_rag_node(db: Session):
     def rag_node(state: ChatState) -> ChatState:
 
         query = state["query"]
+        user_id = state["user_id"]
 
         # -----------------------------------------------------
         # Retrieval
@@ -126,6 +127,7 @@ def create_rag_node(db: Session):
 
         retrieved_docs = rag_service.retrieve(
             question=query,
+            user_id=user_id,
             top_k=5,
         )
 

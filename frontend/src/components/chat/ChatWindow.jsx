@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
+import Mark from "../layout/Mark";
 
-
-/** Thin date divider between message groups */
+/** Plain centered date divider between message groups */
 function DateDivider({ label }) {
   return (
-    <div className="flex items-center gap-3 my-2">
-      <div className="flex-1 h-px bg-slate-100" />
-      <span className="text-[11px] font-medium text-slate-400 tracking-wide px-1 select-none">
+    <div className="flex justify-center my-2">
+      <span className="text-[11px] font-mono font-medium text-ink-400 tracking-wide select-none">
         {label}
       </span>
-      <div className="flex-1 h-px bg-slate-100" />
     </div>
   );
 }
@@ -23,8 +21,8 @@ function ScrollButton({ onClick, visible }) {
       onClick={onClick}
       aria-label="Scroll to bottom"
       className={`absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full
-        bg-white border border-slate-200 shadow-md text-xs font-medium text-slate-600
-        hover:bg-slate-50 hover:border-indigo-300 hover:text-indigo-700 transition-all duration-200
+        bg-paper border border-paper-line shadow-md text-xs font-medium text-ink-600
+        hover:border-moss hover:text-moss transition-all duration-200
         ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}
     >
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -76,7 +74,7 @@ export default function ChatWindow({
   let lastDate = null;
 
   return (
-    <div className={`relative flex flex-col flex-1 min-h-0 ${className}`}>
+    <div className={`relative flex flex-col flex-1 min-h-0 bg-paper ${className}`}>
       {/* Scrollable message list */}
       <div
         ref={scrollRef}
@@ -88,13 +86,9 @@ export default function ChatWindow({
           {/* Empty state */}
           {messages.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center py-24 gap-3 text-center select-none">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium text-slate-500">No messages yet</p>
-              <p className="text-xs text-slate-400">Send a message below to start the conversation.</p>
+              <Mark size={44} />
+              <p className="font-display text-base text-ink-900 mt-1">No messages yet</p>
+              <p className="text-xs text-ink-400 font-mono">Send a message below to start the conversation.</p>
             </div>
           )}
 

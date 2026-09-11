@@ -76,7 +76,7 @@ class WorkspaceStatsOutput(ToolOutputModel):
 # ---------------------------------------------------------------------------
 
 class WebSearchInput(ToolInputModel):
-    """Arguments accepted by the future web_search tool."""
+    """Arguments accepted by the web_search tool."""
 
     query: str = Field(
         ...,
@@ -94,12 +94,23 @@ class WebSearchInput(ToolInputModel):
 class WebSearchResult(ToolOutputModel):
     """One normalized web-search result."""
 
-    title: str
-    url: str
-    snippet: str
+    title: str = Field(
+        description="Title of the web page.",
+    )
+    url: str = Field(
+        description="URL of the web page.",
+    )
+    snippet: str = Field(
+        description="Relevant content extracted from the web page.",
+    )
+    source: str = Field(
+        description="Human-readable source or domain of the result.",
+    )
 
 
 class WebSearchOutput(ToolOutputModel):
-    """Structured result returned by the future web_search tool."""
+    """Structured result returned by the web_search tool."""
 
-    results: list[WebSearchResult] = Field(default_factory=list)
+    results: list[WebSearchResult] = Field(
+        default_factory=list,
+    )

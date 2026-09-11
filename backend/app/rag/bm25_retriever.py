@@ -62,7 +62,7 @@ class BM25Retriever:
             self._bm25 = None
             self._chunks = []
 
-    def _ensure_index(self) -> None:
+    def _ensure_index(self, user_id: str) -> None:
         """
         Build the BM25 index lazily, once, and cache it.
         Thread-safe so concurrent requests don't race to rebuild it.
@@ -75,7 +75,7 @@ class BM25Retriever:
                 # Another thread already built it while we waited.
                 return
 
-            chunks = self.repository.list_all_chunks()
+            chunks = self.repository.list_all_chunks(user_id=user_id)
             if not chunks:
                 self._chunks = []
                 self._bm25 = None
@@ -90,6 +90,7 @@ class BM25Retriever:
     def retrieve(
         self,
         query: str,
+        user_id: str,
         top_k: int = 5,
         min_score: float = 0.0,
     ) -> list[RetrievedChunk]:
@@ -99,6 +100,7 @@ class BM25Retriever:
         Args:
             query: The search query. Should already be rewritten by
                 the caller if query rewriting is part of your pipeline.
+            user_id: UUID of the user for filtering documents.
             top_k: Maximum number of chunks to return.
             min_score: Chunks with a BM25 score at or below this value
                 are dropped, since a score of 0 means no lexical
@@ -107,7 +109,7 @@ class BM25Retriever:
         if top_k <= 0:
             return []
 
-        self._ensure_index()
+        self._ensure_index(user_id=user_id)
 
         if self._bm25 is None:
             return []

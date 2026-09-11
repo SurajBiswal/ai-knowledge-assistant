@@ -1,46 +1,28 @@
 /**
  * TypingIndicator
- * Shows an animated "assistant is thinking" bubble.
+ * Shows an inline "generating a response…" row while the model is
+ * warming up (before the first streamed chunk arrives). Once content
+ * starts flowing, the caller stops rendering this in favour of the
+ * live-updating MessageBubble.
  * Usage: <TypingIndicator />
  */
 export default function TypingIndicator() {
   return (
-    <div className="flex items-end gap-3 group">
-      {/* Assistant avatar */}
-      <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-sm">
-        <svg
-          className="w-4 h-4 text-indigo-500"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-          />
+    <div className="flex items-center gap-2.5 px-1 py-1">
+      {/* Small icon avatar */}
+      <div className="w-6 h-6 rounded-md bg-ink border border-ink-softer flex items-center justify-center flex-shrink-0">
+        <svg className="w-3.5 h-3.5 text-mustard" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
         </svg>
       </div>
 
-      {/* Bubble */}
-      <div className="flex flex-col items-start gap-1">
-        <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-3.5 shadow-sm flex items-center gap-1.5">
-          <span
-            className="w-2 h-2 bg-slate-300 rounded-full animate-bounce"
-            style={{ animationDelay: "0ms", animationDuration: "900ms" }}
-          />
-          <span
-            className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
-            style={{ animationDelay: "160ms", animationDuration: "900ms" }}
-          />
-          <span
-            className="w-2 h-2 bg-slate-500 rounded-full animate-bounce"
-            style={{ animationDelay: "320ms", animationDuration: "900ms" }}
-          />
-        </div>
-        <span className="text-[11px] text-slate-400 px-1">KnowledgeAI is thinking…</span>
-      </div>
+      <span className="text-xs text-ink-400 font-mono">generating a response</span>
+
+      <span className="flex items-center gap-1">
+        <span className="w-1 h-1 bg-ink-400 rounded-full animate-bounce" style={{ animationDelay: "0ms", animationDuration: "900ms" }} />
+        <span className="w-1 h-1 bg-ink-400 rounded-full animate-bounce" style={{ animationDelay: "160ms", animationDuration: "900ms" }} />
+        <span className="w-1 h-1 bg-ink-400 rounded-full animate-bounce" style={{ animationDelay: "320ms", animationDuration: "900ms" }} />
+      </span>
     </div>
   );
 }

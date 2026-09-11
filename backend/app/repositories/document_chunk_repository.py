@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
+from sqlalchemy import delete, select, and_
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.document_chunk import DocumentChunk
+from app.models.document import Document
 
 
 class DocumentChunkRepository:
@@ -56,6 +57,7 @@ class DocumentChunkRepository:
     def search_similar(
             self,
             query_embedding: list[float],
+            user_id: str,
             top_k: int = 5,
     )-> list[tuple[DocumentChunk, float]]:
         
@@ -67,6 +69,7 @@ class DocumentChunkRepository:
 
         Args:
             query_embedding: 768-dimensional query embedding.
+            user_id: UUID of the user to filter documents by.
             top_k: Maximum number of chunks to return.
 
         Returns:
@@ -79,21 +82,41 @@ class DocumentChunkRepository:
             select(DocumentChunk,
                    distance.label("cosine_distance")
                 )
+            .join(Document)
+            .where(Document.user_id == user_id)
             .order_by(distance)
             .limit(top_k)
         )
         result = self.db.execute(stmt)
         return list(result.all())
 
-    def list_all_chunks(self) -> list[DocumentChunk]:
+    def list_all_chunks(self, user_id: str) -> list[DocumentChunk]:
         """
-        Return all indexed document chunks.
+        Return all indexed document chunks for a specific user.
 
         Used by BM25Retriever to build the lexical index.
+
+        Args:
+            user_id: UUID of the user to filter documents by.
         """
 
         return (
             self.db.query(DocumentChunk)
+            .join(Document)
+            .filter(Document.user_id == user_id)
             .order_by(DocumentChunk.chunk_index)
             .all()
         )
+
+    def count_by_user(self, user_id: UUID) -> int:
+        """Return the number of chunks belonging to a user's documents."""
+        from sqlalchemy import func
+
+        stmt = (
+            select(func.count())
+            .select_from(DocumentChunk)
+            .join(Document)
+            .where(Document.user_id == user_id)
+        )
+
+        return int(self.db.execute(stmt).scalar_one())

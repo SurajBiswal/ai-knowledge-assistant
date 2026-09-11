@@ -26,16 +26,16 @@ function renderMarkdown(text) {
         i++;
       }
       elements.push(
-        <div key={key()} className="my-3 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+        <div key={key()} className="my-3 rounded-lg overflow-hidden border border-ink-softer shadow-sm">
           {lang && (
-            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-800 border-b border-slate-700">
-              <span className="text-[11px] font-mono font-medium text-slate-400 uppercase tracking-widest">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-ink border-b border-ink-softer">
+              <span className="text-[11px] font-mono font-medium text-paper-400 uppercase tracking-widest">
                 {lang}
               </span>
               <CopyButton text={codeLines.join("\n")} />
             </div>
           )}
-          <pre className="bg-slate-900 text-slate-100 text-xs leading-relaxed overflow-x-auto p-4 m-0">
+          <pre className="bg-ink text-paper-100 text-xs font-mono leading-relaxed overflow-x-auto p-4 m-0">
             <code>{codeLines.join("\n")}</code>
           </pre>
         </div>
@@ -49,7 +49,7 @@ function renderMarkdown(text) {
       elements.push(
         <blockquote
           key={key()}
-          className="my-2 pl-3 border-l-4 border-indigo-300 text-slate-500 italic text-sm"
+          className="my-2 pl-3 border-l-4 border-mustard text-ink-600 italic text-sm"
         >
           {inlineMarkdown(line.slice(2))}
         </blockquote>
@@ -61,7 +61,7 @@ function renderMarkdown(text) {
     // ── Heading ##  ──────────────────────────────────────────────────
     if (line.startsWith("### ")) {
       elements.push(
-        <h3 key={key()} className="text-sm font-semibold text-slate-800 mt-4 mb-1">
+        <h3 key={key()} className="font-display text-sm font-semibold text-ink-900 mt-4 mb-1">
           {inlineMarkdown(line.slice(4))}
         </h3>
       );
@@ -70,7 +70,7 @@ function renderMarkdown(text) {
     }
     if (line.startsWith("## ")) {
       elements.push(
-        <h2 key={key()} className="text-base font-semibold text-slate-900 mt-4 mb-1">
+        <h2 key={key()} className="font-display text-base font-semibold text-ink-900 mt-4 mb-1">
           {inlineMarkdown(line.slice(3))}
         </h2>
       );
@@ -80,7 +80,7 @@ function renderMarkdown(text) {
 
     // ── Horizontal rule ──────────────────────────────────────────────
     if (/^[-*_]{3,}$/.test(line.trim())) {
-      elements.push(<hr key={key()} className="my-3 border-slate-200" />);
+      elements.push(<hr key={key()} className="my-3 border-paper-line" />);
       i++;
       continue;
     }
@@ -96,7 +96,7 @@ function renderMarkdown(text) {
         <ul key={key()} className="my-2 space-y-1 pl-1">
           {items.map((item, idx) => (
             <li key={idx} className="flex items-start gap-2 text-sm">
-              <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+              <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-moss flex-shrink-0" />
               <span>{inlineMarkdown(item)}</span>
             </li>
           ))}
@@ -118,7 +118,7 @@ function renderMarkdown(text) {
         <ol key={key()} className="my-2 space-y-1 pl-1">
           {items.map((item, idx) => (
             <li key={idx} className="flex items-start gap-2.5 text-sm">
-              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-semibold flex items-center justify-center mt-0.5">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-moss-tint text-moss-dark text-[11px] font-mono font-semibold flex items-center justify-center mt-0.5">
                 {idx + 1}
               </span>
               <span>{inlineMarkdown(item)}</span>
@@ -154,12 +154,12 @@ function inlineMarkdown(text) {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
   return parts.map((part, idx) => {
     if (part.startsWith("**") && part.endsWith("**"))
-      return <strong key={idx} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>;
+      return <strong key={idx} className="font-semibold text-ink-900">{part.slice(2, -2)}</strong>;
     if (part.startsWith("*") && part.endsWith("*"))
       return <em key={idx} className="italic">{part.slice(1, -1)}</em>;
     if (part.startsWith("`") && part.endsWith("`"))
       return (
-        <code key={idx} className="px-1.5 py-0.5 rounded bg-slate-100 text-indigo-700 text-[12px] font-mono border border-slate-200">
+        <code key={idx} className="px-1.5 py-0.5 rounded bg-paper-dim text-moss-dark text-[12px] font-mono border border-paper-line">
           {part.slice(1, -1)}
         </code>
       );
@@ -180,11 +180,11 @@ function CopyButton({ text }) {
   return (
     <button
       onClick={handleCopy}
-      className="text-[11px] text-slate-400 hover:text-slate-200 transition-colors duration-150 flex items-center gap-1"
+      className="text-[11px] text-paper-400 hover:text-paper-100 transition-colors duration-150 flex items-center gap-1 font-mono"
     >
       {copied ? (
         <>
-          <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg className="w-3.5 h-3.5 text-mustard" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
           Copied
@@ -201,43 +201,61 @@ function CopyButton({ text }) {
   );
 }
 
-
+/**
+ * Sources — the signature element.
+ * Each citation reads like a library catalog card: filename, a
+ * right-aligned page number, and — when the backend provides one — an
+ * italicised excerpt line beneath it.
+ */
 function Sources({ sources = [] }) {
   if (!sources.length) return null;
 
   return (
-    <div className="mt-3 border-t border-slate-200 pt-3">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-sm">📄</span>
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <div className="mt-3 pt-3" style={{ borderTop: "1px dashed var(--color-paper-line)" }}>
+      <div className="flex items-center gap-1.5 mb-2">
+        <svg className="w-3.5 h-3.5 text-moss" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+        </svg>
+        <span className="text-[11px] font-mono font-semibold uppercase tracking-widest text-ink-400">
           Sources
         </span>
       </div>
 
-      <div className="space-y-2">
-        {sources.map((source, index) => (
-          <div
-            key={index}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
-          >
-            <div className="font-medium text-slate-800 break-words">
-              {source.filename || "Unknown Document"}
-            </div>
+      <div className="space-y-1.5">
+        {sources.map((source, index) => {
+          // Optional excerpt text — accept whichever field name the backend
+          // happens to send (excerpt / snippet / quote / text). If none of
+          // these are present, the quote line is simply omitted — no schema
+          // change required on the backend.
+          const excerpt = source.excerpt ?? source.snippet ?? source.quote ?? source.text ?? null;
 
-            <div className="mt-1 text-slate-500 flex flex-wrap gap-3">
-              {source.page != null && (
-                <span>Page {source.page}</span>
+          return (
+            <div
+              key={index}
+              className="rounded-md border border-paper-line bg-paper-dim/60 px-3 py-2 text-xs"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 font-medium text-ink-900 break-words leading-snug">
+                  {source.filename || "Unknown Document"}
+                </div>
+                {source.page != null && (
+                  <span className="flex-shrink-0 text-ink-400 font-mono text-[11px] whitespace-nowrap">
+                    page {source.page}
+                  </span>
+                )}
+              </div>
+              {excerpt && (
+                <p className="mt-1 text-ink-400 italic leading-snug">
+                  "{excerpt}"
+                </p>
               )}
-
-              <span>Chunk {source.chunk_index}</span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
-
 
 /** Action bar shown below assistant messages on hover */
 function AssistantActions({ content }) {
@@ -258,10 +276,10 @@ function AssistantActions({ content }) {
       <button
         onClick={handleCopy}
         title="Copy response"
-        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors duration-150"
+        className="p-1.5 rounded-md text-ink-400 hover:text-ink-900 hover:bg-paper-dim transition-colors duration-150"
       >
         {copied ? (
-          <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg className="w-3.5 h-3.5 text-moss" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         ) : (
@@ -275,10 +293,10 @@ function AssistantActions({ content }) {
       <button
         onClick={() => setLiked(liked === "up" ? null : "up")}
         title="Good response"
-        className={`p-1.5 rounded-lg transition-colors duration-150 ${
+        className={`p-1.5 rounded-md transition-colors duration-150 ${
           liked === "up"
-            ? "text-emerald-600 bg-emerald-50"
-            : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            ? "text-moss bg-moss-tint"
+            : "text-ink-400 hover:text-ink-900 hover:bg-paper-dim"
         }`}
       >
         <svg className="w-3.5 h-3.5" fill={liked === "up" ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -290,10 +308,10 @@ function AssistantActions({ content }) {
       <button
         onClick={() => setLiked(liked === "down" ? null : "down")}
         title="Poor response"
-        className={`p-1.5 rounded-lg transition-colors duration-150 ${
+        className={`p-1.5 rounded-md transition-colors duration-150 ${
           liked === "down"
-            ? "text-rose-500 bg-rose-50"
-            : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            ? "text-clay bg-clay-tint"
+            : "text-ink-400 hover:text-ink-900 hover:bg-paper-dim"
         }`}
       >
         <svg className="w-3.5 h-3.5" fill={liked === "down" ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -304,7 +322,7 @@ function AssistantActions({ content }) {
       {/* Regenerate */}
       <button
         title="Regenerate response"
-        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors duration-150"
+        className="p-1.5 rounded-md text-ink-400 hover:text-ink-900 hover:bg-paper-dim transition-colors duration-150"
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -326,10 +344,10 @@ export default function MessageBubble({ message }) {
     <div className={`flex items-end gap-3 group ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       {/* Avatar */}
       <div
-        className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold shadow-sm
+        className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold shadow-sm font-mono
           ${isUser
-            ? "bg-gradient-to-br from-indigo-400 to-violet-500 text-white"
-            : "bg-slate-100 border border-slate-200 text-indigo-500"
+            ? "bg-moss text-paper-100"
+            : "bg-ink text-mustard border border-ink-softer"
           }`}
       >
         {isUser ? (
@@ -347,8 +365,8 @@ export default function MessageBubble({ message }) {
         <div
           className={`px-4 py-3 shadow-sm
             ${isUser
-              ? "bg-indigo-600 text-white rounded-2xl rounded-br-sm"
-              : "bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-bl-sm"
+              ? "bg-ink text-paper-100 rounded-2xl rounded-br-sm"
+              : "bg-surface border border-paper-line text-ink-900 rounded-2xl rounded-bl-sm"
             }`}
         >
           {isUser ? (
@@ -357,7 +375,7 @@ export default function MessageBubble({ message }) {
             </p>
           ) : (
             <>
-              <div className="prose-sm prose-slate max-w-none">
+              <div className="prose-sm max-w-none">
                 {renderMarkdown(message.content)}
               </div>
 
@@ -368,7 +386,7 @@ export default function MessageBubble({ message }) {
 
         {/* Timestamp */}
         {message.time && (
-          <span className={`text-[11px] text-slate-400 px-1 ${isUser ? "text-right" : "text-left"}`}>
+          <span className={`text-[11px] text-ink-400 font-mono px-1 ${isUser ? "text-right" : "text-left"}`}>
             {message.time}
           </span>
         )}

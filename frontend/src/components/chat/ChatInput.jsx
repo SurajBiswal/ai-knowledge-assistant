@@ -60,19 +60,19 @@ export default function ChatInput({
   }, [isLoading]);
 
   return (
-    <div className="w-full px-3 sm:px-4 pb-4 pt-2 bg-white">
+    <div className="w-full px-3 sm:px-4 pb-5 pt-2 bg-paper">
       <div className="max-w-2xl mx-auto flex flex-col gap-1.5">
 
         {/* ── Input shell ─────────────────────────────────────────────── */}
         <div
           className={`
-            relative flex items-end gap-2 rounded-2xl border px-3 py-2.5 shadow-sm
-            transition-all duration-200
+            relative flex items-end gap-2 rounded-[26px] border px-3.5 py-2.5
+            transition-all duration-150
             ${disabled
-              ? "bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed"
+              ? "bg-paper-dim border-paper-line opacity-60 cursor-not-allowed shadow-none"
               : isFocused
-                ? "bg-white border-indigo-400 ring-2 ring-indigo-100"
-                : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                ? "bg-surface border-ink-400/60 shadow-md"
+                : "bg-surface border-paper-line shadow-sm hover:border-ink-400/40"
             }
           `}
         >
@@ -82,10 +82,10 @@ export default function ChatInput({
             disabled={isBlocked}
             title="Attach file"
             className={`
-              flex-shrink-0 mb-0.5 p-1.5 rounded-lg transition-colors duration-150
+              flex-shrink-0 mb-0.5 w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-150
               ${isBlocked
-                ? "text-slate-300 cursor-not-allowed"
-                : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                ? "text-ink-400/50 cursor-not-allowed"
+                : "text-ink-400 hover:text-ink-900 hover:bg-paper-dim"
               }
             `}
           >
@@ -108,9 +108,9 @@ export default function ChatInput({
             placeholder={placeholder}
             aria-label="Chat message input"
             className={`
-              flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed
-              text-slate-900 placeholder-slate-400
-              min-h-[24px] max-h-[200px] overflow-y-auto
+              flex-1 resize-none bg-transparent outline-none text-[15px] leading-relaxed
+              text-ink-900 placeholder-ink-400
+              min-h-[28px] max-h-[200px] overflow-y-auto py-1
               transition-colors duration-150
               ${isBlocked ? "cursor-not-allowed" : ""}
             `}
@@ -124,13 +124,13 @@ export default function ChatInput({
             disabled={!canSend}
             title={isLoading ? "Waiting for response…" : "Send message"}
             className={`
-              flex-shrink-0 mb-0.5 w-8 h-8 rounded-xl flex items-center justify-center
+              flex-shrink-0 mb-0.5 w-8 h-8 rounded-full flex items-center justify-center
               transition-all duration-200
               ${canSend
-                ? "bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-sm shadow-indigo-200"
+                ? "bg-mustard hover:bg-mustard-dark active:scale-95 text-white shadow-sm"
                 : isLoading
-                  ? "bg-indigo-100 text-indigo-400 cursor-not-allowed"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  ? "bg-moss-tint text-moss cursor-not-allowed"
+                  : "bg-paper-dim text-ink-400/50 cursor-not-allowed"
               }
             `}
           >
@@ -140,7 +140,7 @@ export default function ChatInput({
 
         {/* ── Footer row ──────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-1">
-          <p className="text-[11px] text-slate-400 hidden sm:block select-none">
+          <p className="text-[11px] text-ink-400 font-mono hidden sm:block select-none">
             {isLoading
               ? "Generating response…"
               : "Enter to send · Shift+Enter for new line"}
@@ -149,10 +149,10 @@ export default function ChatInput({
           {/* Character counter — only visible near limit */}
           <span
             className={`
-              text-[11px] ml-auto transition-colors duration-150
+              text-[11px] font-mono ml-auto transition-colors duration-150
               ${nearLimit
-                ? charCount >= maxLength ? "text-rose-500 font-medium" : "text-amber-500"
-                : "text-slate-300"
+                ? charCount >= maxLength ? "text-clay font-medium" : "text-mustard-dark"
+                : "text-ink-400/60"
               }
             `}
           >

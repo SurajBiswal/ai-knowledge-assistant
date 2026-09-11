@@ -11,7 +11,6 @@ from app.repositories.message_repository import (
 )
 # STREAMING: Import the streaming response function from Gemini service
 from app.services.gemini_service import (
-    generate_stream_response,
     generate_conversation_title,
 )
 
@@ -157,12 +156,13 @@ class ChatService:
             }
             for msg in history
         ]
-
+        
         try:
             graph = create_graph(self.db)
 
             result = graph.invoke(
                 {
+                    "user_id": str(conversation.user_id),
                     "conversation_id": str(conversation_id),
                     "query": user_message,          # Fixed
                     "messages": graph_messages,
@@ -191,12 +191,17 @@ class ChatService:
 
     # STREAMING: New method that yields AI response chunks in real-time
     # This allows frontend to display text gradually as it's being generated
+    
     def send_message_stream(
-    self,
-    conversation_id: UUID,
-    user_message: str,
+        self,
+        conversation_id: UUID,
+        user_message: str,
     ):
+
+        # ---------------------------------------------------------
         # Fetch conversation
+        # ---------------------------------------------------------
+
         conversation = self.get_conversation(
             conversation_id
         )
@@ -206,78 +211,109 @@ class ChatService:
                 "Conversation not found"
             )
 
+        # ---------------------------------------------------------
         # Generate title for a new conversation
+        # ---------------------------------------------------------
+
         if conversation.title == "New Chat":
             try:
-                generated_title = generate_conversation_title(
-                    user_message
+                generated_title = (
+                    generate_conversation_title(
+                        user_message
+                    )
                 )
 
                 self.conversation_repository.rename(
                     conversation_id=conversation_id,
                     title=generated_title,
                 )
+
             except Exception:
                 pass
 
+        # ---------------------------------------------------------
         # Load previous history
+        # ---------------------------------------------------------
+
         history = (
-            self.message_repository.get_last_n_messages(
+            self.message_repository
+            .get_last_n_messages(
                 conversation_id=conversation_id,
                 limit=10,
             )
         )
 
+        # ---------------------------------------------------------
         # Save user message
+        # ---------------------------------------------------------
+
         self.message_repository.create(
             conversation_id=conversation_id,
             role="user",
             content=user_message,
         )
 
-        # Convert history for LangGraph
+        # ---------------------------------------------------------
+        # Convert history for graph state
+        # ---------------------------------------------------------
+
         graph_messages = [
             {
-                "role": msg.role,
-                "content": msg.content,
+                "role": message.role,
+                "content": message.content,
             }
-            for msg in history
+            for message in history
         ]
 
+        # ---------------------------------------------------------
+        # Execute Layer 2 graph
+        # ---------------------------------------------------------
+
         try:
-            graph = create_graph(self.db)
+
+            graph = create_graph(
+                self.db
+            )
 
             result = graph.invoke(
                 {
-                    "conversation_id": str(conversation_id),
-                    "query": user_message,          # Fixed
+                    "user_id": str(
+                        conversation.user_id
+                    ),
+                    "conversation_id": str(
+                        conversation_id
+                    ),
+                    "query": user_message,
                     "messages": graph_messages,
                 }
             )
 
-            # Reuse the grounded prompt built by the graph
-            prompt = result["prompt"]
+            complete_response = result[
+                "response"
+            ]
 
-            sources = result.get("sources", [])
-
-            print(prompt)
+            sources = result.get(
+                "sources",
+                [],
+            )
 
         except Exception as e:
             raise RuntimeError(
                 f"Graph execution failed: {str(e)}"
             )
 
-        complete_response = ""
+        # ---------------------------------------------------------
+        # Current Layer 2 streaming behavior
+        #
+        # ToolCallingService is synchronous, so yield the completed
+        # answer as one chunk.
+        # ---------------------------------------------------------
 
-        try:
-            for chunk in generate_stream_response(prompt):
-                complete_response += chunk
-                yield chunk
+        yield complete_response
 
-        except Exception as e:
-            raise RuntimeError(
-                f"Streaming failed: {str(e)}"
-            )
+        # ---------------------------------------------------------
+        # Save assistant response
+        # ---------------------------------------------------------
 
         self.message_repository.create(
             conversation_id=conversation_id,

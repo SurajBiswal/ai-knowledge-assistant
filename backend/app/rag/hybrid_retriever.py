@@ -31,6 +31,7 @@ class HybridRetriever:
     def retrieve(
     self,
     question: str,
+    user_id: str,
     top_k: int = 5,
     ) -> list[RetrievedChunk]:
         """
@@ -57,11 +58,13 @@ class HybridRetriever:
 
         semantic_results = self._retrieve_semantic(
             query=query,
+            user_id=user_id,
             top_k=top_k,
         )
 
         bm25_results = self._retrieve_bm25(
             query=query,
+            user_id=user_id,
             top_k=top_k,
         )
 
@@ -77,6 +80,7 @@ class HybridRetriever:
     def _retrieve_semantic(
     self,
     query: str,
+    user_id: str,
     top_k: int,
     ) -> list[RetrievedChunk]:
         """
@@ -89,6 +93,9 @@ class HybridRetriever:
             query:
                 The search query.
 
+            user_id:
+                UUID of the user for filtering documents.
+
             top_k:
                 Maximum number of chunks to retrieve.
 
@@ -99,6 +106,7 @@ class HybridRetriever:
         try:
             return self.semantic_retriever.retrieve(
                 query=query,
+                user_id=user_id,
                 top_k=top_k,
             )
 
@@ -112,6 +120,7 @@ class HybridRetriever:
     def _retrieve_bm25(
     self,
     query: str,
+    user_id: str,
     top_k: int,
     ) -> list[RetrievedChunk]:
         """
@@ -124,6 +133,9 @@ class HybridRetriever:
             query:
                 The search query.
 
+            user_id:
+                UUID of the user for filtering documents.
+
             top_k:
                 Maximum number of chunks to retrieve.
 
@@ -134,6 +146,7 @@ class HybridRetriever:
         try:
             return self.bm25_retriever.retrieve(
                 query=query,
+                user_id=user_id,
                 top_k=top_k,
             )
 
