@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from app.llm.base import ToolCallingConversation, ToolCallingLLM
 from app.rag.retriever import RetrievedChunk
 
 
 class ToolCall(TypedDict):
     """
-    Structured tool call requested by Gemini.
+    Structured tool call requested by the selected LLM.
 
     The LLM decides:
 
@@ -23,6 +24,7 @@ class ToolCall(TypedDict):
 
     name: str
     arguments: dict[str, Any]
+    call_id: str | None
 
 
 class ToolResult(TypedDict):
@@ -32,6 +34,7 @@ class ToolResult(TypedDict):
 
     name: str
     result: dict[str, Any]
+    call_id: str | None
 
 
 class ChatState(TypedDict, total=False):
@@ -79,7 +82,12 @@ class ChatState(TypedDict, total=False):
 
     tool_results: list[ToolResult]
 
-    gemini_contents: list[Any]
+    # The selected client and its normalized conversation are retained for
+    # the Tool Node -> Agent return path. This keeps the same model active
+    # throughout one tool-calling exchange.
+    llm_client: ToolCallingLLM
+
+    llm_conversation: ToolCallingConversation
 
     # ---------------------------------------------------------
     # Final assistant response

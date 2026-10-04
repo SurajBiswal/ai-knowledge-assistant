@@ -6,9 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.graph.state import ChatState
-from app.services.tool_calling_service import (
-    ToolCallingService,
-)
+from app.llm.base import serialize_tool_output
 from app.tools.tool_registry_factory import (
     create_tool_registry,
 )
@@ -16,6 +14,8 @@ from app.tools.tool_registry_factory import (
 
 def create_tool_node(
     db: Session,
+    *,
+    tool_registry_factory=create_tool_registry,
 ):
     """
     Create the LangGraph Tool Node.
@@ -30,7 +30,7 @@ def create_tool_node(
 
     The Tool Node does NOT decide which tool to use.
 
-    Gemini made that decision.
+    The selected LLM made that decision.
     """
 
     def tool_node(
@@ -55,7 +55,7 @@ def create_tool_node(
             state["user_id"]
         )
 
-        tool_registry = create_tool_registry(
+        tool_registry = tool_registry_factory(
             db=db,
             user_id=user_id,
         )
@@ -63,7 +63,7 @@ def create_tool_node(
         tool_results = []
 
         # -----------------------------------------------------
-        # Execute every Gemini-requested tool
+        # Execute every LLM-requested tool
         # -----------------------------------------------------
 
         for tool_call in tool_calls:
@@ -81,17 +81,13 @@ def create_tool_node(
                 )
             )
 
-            serialized_result = (
-                ToolCallingService
-                .serialize_tool_result(
-                    raw_result
-                )
-            )
+            serialized_result = serialize_tool_output(raw_result)
 
             tool_results.append(
                 {
                     "name": tool_name,
                     "result": serialized_result,
+                    "call_id": tool_call.get("call_id"),
                 }
             )
 

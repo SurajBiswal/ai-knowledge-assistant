@@ -52,7 +52,7 @@ def create_graph(
                          ▼         ▼
                       Tool Node   END
 
-    Gemini decides whether a tool is required.
+    The user-selected LLM decides whether a tool is required.
 
     LangGraph controls routing and execution flow.
     """

@@ -9,6 +9,10 @@ class Settings:
 
     TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
+    CREDENTIAL_ENCRYPTION_KEY = os.getenv(
+        "CREDENTIAL_ENCRYPTION_KEY"
+    )
+
     JWT_SECRET_KEY = os.getenv(
         "JWT_SECRET_KEY"
     )

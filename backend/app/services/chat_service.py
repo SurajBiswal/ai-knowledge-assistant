@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import HTTPException
 
 from app.graph.graph import create_graph
+from app.llm.factory import LLMProviderFactory
 from app.repositories.conversation_repository import (
     ConversationRepository,
 )
@@ -103,6 +104,10 @@ class ChatService:
             conversation_id
         )
 
+    def require_configured_llm(self, *, user_id: UUID) -> None:
+        """Fail before a chat response begins when no usable profile exists."""
+        LLMProviderFactory(db=self.db).require_active_profile(user_id=user_id)
+
 # This method handles sending a user message to the AI model, saving both the user and assistant messages to the database, and returning the assistant's response.
     def send_message(
     self,
@@ -118,6 +123,8 @@ class ChatService:
             raise ValueError(
                 "Conversation not found"
             )
+
+        self.require_configured_llm(user_id=conversation.user_id)
 
         # Generate title for a new conversation
         if conversation.title == "New Chat":
@@ -210,6 +217,8 @@ class ChatService:
             raise ValueError(
                 "Conversation not found"
             )
+
+        self.require_configured_llm(user_id=conversation.user_id)
 
         # ---------------------------------------------------------
         # Generate title for a new conversation

@@ -11,6 +11,10 @@ from app.api.documents.router import (
     router as documents_router,
 )
 
+from app.api.llm_providers.router import (
+    router as llm_providers_router,
+)
+
 app = FastAPI(
     title="AI Knowledge Assistant"
 )
@@ -34,3 +38,5 @@ app.include_router(conversations_router)
 app.include_router(auth_router)
 
 app.include_router(documents_router)
+
+app.include_router(llm_providers_router)

@@ -175,10 +175,10 @@ class RAGService:
     # =============================================================
 
     def retrieve(
-    self,
-    question: str,
-    user_id: str,
-    top_k: int = 5,
+        self,
+        question: str,
+        user_id: str | None = None,
+        top_k: int = 5,
     ) -> list[RetrievedChunk]:
         """
         Retrieve and rerank document chunks.
@@ -204,11 +204,6 @@ class RAGService:
                 "RAGService retrieval is not configured."
             )
 
-        if self.reranker is None:
-            raise RuntimeError(
-                "RAGService reranker is not configured."
-            )
-
         # Retrieve more candidates than the final number.
         # The reranker needs a larger candidate pool to choose
         # the most relevant chunks.
@@ -222,6 +217,9 @@ class RAGService:
 
         if not candidate_chunks:
             return []
+
+        if self.reranker is None:
+            return candidate_chunks[:top_k]
 
         # Rerank candidates using the Cross Encoder.
         reranked_chunks = self.reranker.rerank(

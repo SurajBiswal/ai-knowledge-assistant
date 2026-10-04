@@ -14,7 +14,14 @@ class RetrievedChunk:
     chunk_index: int
     chunk_text: str
     metadata: dict[str, Any]
-    score: float
+    score: float | None = None
+    cosine_distance: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.score is None and self.cosine_distance is not None:
+            self.score = self.cosine_distance
+        if self.cosine_distance is None and self.score is not None:
+            self.cosine_distance = self.score
 
 
 class SemanticRetriever:
@@ -29,10 +36,17 @@ class SemanticRetriever:
 
     def retrieve(
         self,
-        query: str,
-        user_id: str,
+        query: str | None = None,
+        question: str | None = None,
+        user_id: str | None = None,
         top_k: int = 5,
     ) -> list[RetrievedChunk]:
+
+        if query is None:
+            query = question
+
+        if query is None:
+            raise ValueError("Query or question is required.")
         
         """
             Retrieve the top-k document chunks that are semantically

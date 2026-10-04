@@ -3,6 +3,7 @@ import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import ChatWindow from "../components/chat/ChatWindow";
 import ChatInput from "../components/chat/ChatInput";
+import LanguageModelSettings from "../components/settings/LanguageModelSettings";
 import {
   createConversation,
   getConversations,
@@ -56,6 +57,7 @@ export default function ChatPage({ user, onLogout }) {
   const [isGenerating, setIsGenerating] = useState(false); // true from send until first streamed chunk arrives
   const [error, setError] = useState(null);       // { message: string } | null
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   
 
   // Prevent double-sends if the user submits before the previous resolves
@@ -262,6 +264,11 @@ export default function ChatPage({ user, onLogout }) {
         }
         user={user}
         onLogout={onLogout}
+        onSettings={() => {
+          setSettingsOpen(true);
+          setSidebarOpen(false);
+        }}
+        settingsOpen={settingsOpen}
       />
 
       {/* Main column */}
@@ -297,6 +304,10 @@ export default function ChatPage({ user, onLogout }) {
           disabled={false}
         />
       </div>
+
+      {settingsOpen && (
+        <LanguageModelSettings onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
   );
 }

@@ -23,10 +23,23 @@ SessionLocal = sessionmaker(
 # Dependency function to get a database session. 
 # This function can be used in FastAPI routes to provide a database session for each request. 
 # It ensures that the session is properly closed after the request is completed, even if an error occurs.
+
 def get_db():
     db = SessionLocal()
 
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
+        
+# def get_db():
+#     db = SessionLocal()
+
+#     try:
+#         yield db
+#     finally:
+#         db.close()

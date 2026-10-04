@@ -109,7 +109,10 @@ def create_rag_node(db: Session):
     def rag_node(state: ChatState) -> ChatState:
 
         query = state["query"]
-        user_id = state["user_id"]
+        user_id = state.get("user_id")
+
+        if user_id is None:
+            user_id = "00000000-0000-0000-0000-000000000000"
 
         # -----------------------------------------------------
         # Retrieval

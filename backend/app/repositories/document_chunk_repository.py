@@ -57,7 +57,7 @@ class DocumentChunkRepository:
     def search_similar(
             self,
             query_embedding: list[float],
-            user_id: str,
+            user_id: str | None = None,
             top_k: int = 5,
     )-> list[tuple[DocumentChunk, float]]:
         
@@ -83,10 +83,12 @@ class DocumentChunkRepository:
                    distance.label("cosine_distance")
                 )
             .join(Document)
-            .where(Document.user_id == user_id)
-            .order_by(distance)
-            .limit(top_k)
         )
+
+        if user_id is not None:
+            stmt = stmt.where(Document.user_id == user_id)
+
+        stmt = stmt.order_by(distance).limit(top_k)
         result = self.db.execute(stmt)
         return list(result.all())
 

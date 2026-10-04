@@ -1,6 +1,6 @@
 import uuid
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import ForeignKey, String, JSON, DateTime, func, Text
+from sqlalchemy import ForeignKey, String, JSON, DateTime, func, Text, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -53,3 +53,20 @@ class DocumentChunk(Base):
         nullable=False,
     )
 
+
+
+
+    __table_args__ = (
+        Index(
+            "idx_chunks_embedding",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={
+                "embedding": "vector_cosine_ops",
+            },
+            postgresql_with={
+                "m": 16,
+                "ef_construction": 64,
+            },
+        ),
+    )

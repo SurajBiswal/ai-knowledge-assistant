@@ -57,7 +57,7 @@ export async function sendMessageStream(
   try {
     const token = localStorage.getItem("access_token");
     if (token) headers.Authorization = `Bearer ${token}`;
-  } catch (e) {
+  } catch {
     // ignore
   }
 
@@ -73,7 +73,16 @@ export async function sendMessageStream(
   );
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    let message = "Unable to send message.";
+    try {
+      const errorBody = await response.json();
+      if (typeof errorBody?.detail === "string") {
+        message = errorBody.detail;
+      }
+    } catch {
+      message = `Unable to send message (HTTP ${response.status}).`;
+    }
+    throw new Error(message);
   }
 
   // STREAMING: Read the response body as a stream

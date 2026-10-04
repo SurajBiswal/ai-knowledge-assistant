@@ -33,6 +33,7 @@ from app.core.dependencies import (
 )
 
 from app.models.user import User
+from app.llm.base import LLMProviderError
 
 def get_chat_service(
     db: Session = Depends(get_db),
@@ -194,10 +195,13 @@ def send_message(
             detail="Unauthorized",
         )
 
-    return service.send_message(
-        conversation_id=conversation_id,
-        user_message=request.content,
-    )
+    try:
+        return service.send_message(
+            conversation_id=conversation_id,
+            user_message=request.content,
+        )
+    except LLMProviderError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 # STREAMING: New endpoint for streaming responses
@@ -227,6 +231,13 @@ async def send_message_stream(
             status_code=403,
             detail="Unauthorized",
         )
+
+    # Validate before StreamingResponse sends HTTP headers. This lets the
+    # browser receive a useful JSON error rather than a broken 200 stream.
+    try:
+        service.require_configured_llm(user_id=current_user.id)
+    except LLMProviderError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     # STREAMING: Create generator that yields chunks of AI response
     # StreamingResponse sends each chunk to frontend as it arrives
