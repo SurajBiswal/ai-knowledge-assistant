@@ -1,3 +1,9 @@
+"""Native tool that counts records in the authenticated user's workspace.
+
+The LLM can use this tool for questions such as how many documents or messages
+the user has. Trusted ``user_id`` comes from authentication, never tool input.
+"""
+
 from __future__ import annotations
 
 from uuid import UUID
@@ -13,7 +19,7 @@ from app.tools.schemas import WorkspaceStatsInput, WorkspaceStatsOutput
 class WorkspaceStatsTool(
     BaseTool[WorkspaceStatsInput, WorkspaceStatsOutput]
 ):
-    """Read-only tool for statistics belonging to one authenticated user.
+    """Return workspace record counts for one authenticated user.
 
     The LLM supplies no user identity and no SQL. The application injects
     the authenticated user's ID, while repository methods execute fixed,
@@ -39,6 +45,7 @@ class WorkspaceStatsTool(
         message_repository: MessageRepository,
         user_id: UUID,
     ) -> None:
+        """Store repositories and the trusted user ID used for every count."""
         self.document_repository = document_repository
         self.chunk_repository = chunk_repository
         self.conversation_repository = conversation_repository
@@ -49,7 +56,7 @@ class WorkspaceStatsTool(
         self,
         arguments: WorkspaceStatsInput,
     ) -> WorkspaceStatsOutput:
-        """Return counts for the authenticated user's workspace."""
+        """Validate empty input and return all current workspace totals."""
 
         self.validate_input(arguments)
 

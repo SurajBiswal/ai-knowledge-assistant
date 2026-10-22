@@ -1,3 +1,10 @@
+"""Legacy LangGraph node for direct document retrieval and context building.
+
+This factory assembles the complete RAG retrieval pipeline and returns a node
+that adds retrieved chunks, context, and citations to graph state. The active
+graph now reaches RAG through ``DocumentSearchTool`` instead.
+"""
+
 from sqlalchemy.orm import Session
 
 from app.graph.state import ChatState
@@ -20,8 +27,9 @@ from app.repositories.document_repository import (
 from app.services.rag_service import RAGService
 
 
-# Factory that creates a RAG node with its dependencies.
+# Build the repositories and RAG components required by the legacy node.
 def create_rag_node(db: Session):
+    """Return a state function with a database-backed RAG pipeline attached."""
 
     # ---------------------------------------------------------
     # 1. Repositories
@@ -107,6 +115,7 @@ def create_rag_node(db: Session):
     # ---------------------------------------------------------
 
     def rag_node(state: ChatState) -> ChatState:
+        """Retrieve user documents and add context/citations to graph state."""
 
         query = state["query"]
         user_id = state.get("user_id")

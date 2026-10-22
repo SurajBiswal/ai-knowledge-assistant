@@ -1,3 +1,10 @@
+"""Conversation and chat HTTP endpoints.
+
+The router checks JWT ownership, then calls ``ChatService`` for conversation
+storage and LangGraph execution. ChatService connects this API layer to the
+selected user LLM, the unified tool registry, and message repositories.
+"""
+
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -38,20 +45,16 @@ from app.llm.base import LLMProviderError
 def get_chat_service(
     db: Session = Depends(get_db),
 ) -> ChatService:
+    """Build ChatService with repositories that share this request's session."""
     return ChatService(
         conversation_repository=ConversationRepository(db),
         message_repository=MessageRepository(db),
     )
 
 
-# TEMP USER
-# replaced by JWT user in Week 4
-# DEMO_USER_ID = UUID(
-#     "11111111-1111-1111-1111-111111111111"
-# )
-
-
+# Development-only sample generator retained for the commented stream test.
 async def generate_stream():
+    """Yield sample words slowly; this is not used by production chat routes."""
     words = ["Hello", "world", "this", "is", "a", "streaming", "response"]
 
     for word in words:
@@ -70,6 +73,7 @@ def list_conversations(
     ),
     service: ChatService = Depends(get_chat_service),
 ):
+    """Return conversations that belong to the authenticated user."""
     return service.list_conversations(
         current_user.id
     )
@@ -86,6 +90,7 @@ def create_conversation(
     ),
     service: ChatService = Depends(get_chat_service),
 ):
+    """Create a conversation owned by the authenticated user."""
     return service.create_conversation(
         user_id=current_user.id,
         title=request.title,
@@ -102,6 +107,7 @@ def rename_conversation(
     ),
     service: ChatService = Depends(get_chat_service),
 ):
+    """Rename a conversation after ChatService verifies its owner."""
     return service.rename_conversation(
         user=current_user,
         conversation_id=conversation_id,
@@ -117,6 +123,7 @@ def delete_conversation(
     ),
     service: ChatService = Depends(get_chat_service),
 ):
+    """Delete one conversation only when it belongs to the current user."""
     conversation = service.get_conversation(conversation_id)
 
     if not conversation:
@@ -149,6 +156,7 @@ def get_messages(
     ),
     service: ChatService = Depends(get_chat_service),
 ):
+    """Return stored messages after checking conversation ownership."""
     conversation = service.get_conversation(conversation_id)
 
     if not conversation:
@@ -169,11 +177,13 @@ def get_messages(
 
 
 
+# This async endpoint propagates awaiting from HTTP through the chat service to
+# LangGraph, which is required when the selected tool is an MCP tool.
 @router.post(
     "/{conversation_id}/messages",
     response_model=MessageResponse,
 )
-def send_message(
+async def send_message(
     conversation_id: UUID,
     request: SendMessageRequest,
     current_user: User = Depends(
@@ -181,6 +191,7 @@ def send_message(
     ),
     service: ChatService = Depends(get_chat_service),
 ):
+    """Run one asynchronous LangGraph turn and return the saved answer."""
     conversation = service.get_conversation(conversation_id)
 
     if not conversation:
@@ -196,7 +207,7 @@ def send_message(
         )
 
     try:
-        return service.send_message(
+        return await service.send_message(
             conversation_id=conversation_id,
             user_message=request.content,
         )
@@ -204,8 +215,8 @@ def send_message(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-# STREAMING: New endpoint for streaming responses
-# Frontend calls this instead of /messages to get real-time text streaming
+# This endpoint passes the service's async generator to StreamingResponse so
+# MCP calls finish safely before the completed response chunk is emitted.
 @router.post(
     "/{conversation_id}/messages/stream",
     response_class=StreamingResponse,
@@ -218,6 +229,7 @@ async def send_message_stream(
     ),
     service: ChatService = Depends(get_chat_service),
 ):
+    """Return ChatService's async response generator as a plain-text stream."""
     conversation = service.get_conversation(conversation_id)
 
     if not conversation:

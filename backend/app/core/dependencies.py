@@ -1,3 +1,10 @@
+"""Reusable FastAPI dependencies for authenticated requests.
+
+``get_current_user`` reads the bearer token, verifies it with security helpers,
+and loads the matching User through UserRepository. Protected routers depend on
+this function instead of trusting a user ID supplied by the frontend.
+"""
+
 from uuid import UUID
 
 from fastapi import (
@@ -20,6 +27,7 @@ from app.repositories.user_repository import (
     UserRepository,
 )
 
+# FastAPI uses this object to read the Authorization: Bearer header.
 security = HTTPBearer()
 
 def get_current_user(
@@ -28,6 +36,7 @@ def get_current_user(
     ),
     db: Session = Depends(get_db),
 ):
+    """Return the database user identified by a valid JWT access token."""
     token = credentials.credentials
 
     try:

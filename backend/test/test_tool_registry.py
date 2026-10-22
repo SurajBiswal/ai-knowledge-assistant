@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from app.tools.registry import ToolRegistry
@@ -29,6 +31,13 @@ class ToolWithoutName:
 
     def execute(self, arguments: dict):
         return arguments
+
+
+class FakeAsyncTool:
+    name = "mcp_test_remote"
+
+    async def execute_async(self, arguments: dict):
+        return {"arguments": arguments, "async": True}
 
 
 # ---------------------------------------------------------------------------
@@ -264,3 +273,35 @@ def test_execute_unknown_tool_raises_error():
             name="unknown_tool",
             arguments={},
         )
+
+
+def test_execute_async_preserves_native_tool_execution():
+    registry = ToolRegistry()
+    registry.register(FakeTool(name="search_documents", result="success"))
+
+    result = asyncio.run(
+        registry.execute_async(
+            name="search_documents",
+            arguments={"query": "MCP"},
+        )
+    )
+
+    assert result["result"] == "success"
+    assert result["arguments"] == {"query": "MCP"}
+
+
+def test_execute_async_uses_async_tool_method():
+    registry = ToolRegistry()
+    registry.register(FakeAsyncTool())
+
+    result = asyncio.run(
+        registry.execute_async(
+            name="mcp_test_remote",
+            arguments={"value": 42},
+        )
+    )
+
+    assert result == {
+        "arguments": {"value": 42},
+        "async": True,
+    }

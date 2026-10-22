@@ -1,3 +1,10 @@
+"""Native tool that searches the authenticated user's uploaded documents.
+
+The LLM selects this tool when a question needs personal document knowledge.
+It calls ``RAGService.retrieve`` and converts retrieved chunks into the validated
+output shape returned to the model.
+"""
+
 from __future__ import annotations
 
 from app.rag.retriever import RetrievedChunk
@@ -13,7 +20,7 @@ from app.tools.schemas import (
 class DocumentSearchTool(
     BaseTool[SearchDocumentsInput, SearchDocumentsOutput]
 ):
-    """Expose the existing user-scoped RAG retrieval pipeline as a tool."""
+    """Expose user-scoped document retrieval as ``search_documents``."""
 
     name = "search_documents"
 
@@ -29,6 +36,7 @@ class DocumentSearchTool(
     output_schema = SearchDocumentsOutput
 
     def __init__(self, rag_service: RAGService, user_id: str) -> None:
+        """Store the RAG pipeline and trusted authenticated user ID."""
         self.rag_service = rag_service
         self.user_id = user_id
 
@@ -36,6 +44,7 @@ class DocumentSearchTool(
         self,
         arguments: SearchDocumentsInput,
     ) -> SearchDocumentsOutput:
+        """Validate arguments, retrieve owned chunks, and return safe results."""
         validated_arguments = self.validate_input(arguments)
 
         retrieved_chunks = self.rag_service.retrieve(
@@ -55,6 +64,7 @@ class DocumentSearchTool(
 
     @staticmethod
     def _to_result(chunk: RetrievedChunk) -> DocumentSearchResult:
+        """Convert one internal retrieved chunk into public tool output."""
         metadata = chunk.metadata or {}
 
         document_name = (
@@ -63,8 +73,15 @@ class DocumentSearchTool(
             or str(chunk.document_id)
         )
 
+        document_id = metadata.get("document_id") or str(chunk.document_id)
+        page = metadata.get("page")
+        if isinstance(page, bool) or not isinstance(page, int):
+            page = None
+
         return DocumentSearchResult(
+            document_id=str(document_id),
             document=str(document_name),
+            page=page,
             chunk_index=int(chunk.chunk_index),
             content=chunk.chunk_text,
             score=float(chunk.score),

@@ -1,144 +1,101 @@
+"""Build native-only or unified user-scoped tool registries.
+
+The active Agent Node calls ``create_unified_tool_registry``. It combines
+``NativeToolProvider`` with an optional ``MCPToolProvider`` and applies the
+user's availability resolver. The sync helper remains for legacy code.
+"""
+
 from __future__ import annotations
 
+from collections.abc import Callable
+import inspect
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-
-from app.rag.bm25_retriever import BM25Retriever
-from app.rag.cross_encoder_reranker import CrossEncoderReranker
-from app.rag.embedder import GeminiEmbedder
-from app.rag.hybrid_retriever import HybridRetriever
-from app.rag.retriever import SemanticRetriever
-
-from app.repositories.conversation_repository import (
-    ConversationRepository,
+from app.mcp.client.manager import MCPClientManager
+from app.tools.providers.access import (
+    StaticToolAvailabilityResolver,
+    ToolAvailabilityResolver,
 )
-from app.repositories.document_chunk_repository import (
-    DocumentChunkRepository,
-)
-from app.repositories.document_repository import (
-    DocumentRepository,
-)
-from app.repositories.message_repository import (
-    MessageRepository,
-)
-
-from app.services.rag_service import RAGService
-from app.services.web_search_service import WebSearchService
-
-from app.tools.document_search import DocumentSearchTool
+from app.tools.providers.base import ToolProvider
+from app.tools.providers.mcp import MCPToolProvider
+from app.tools.providers.native import NativeToolProvider, build_native_tools
+from app.tools.providers.unified import UnifiedToolRegistryFactory
 from app.tools.registry import ToolRegistry
-from app.tools.web_search import WebSearchTool
-from app.tools.workspace_stats import WorkspaceStatsTool
 
 
+# This legacy helper still builds the original native-only registry for older
+# scripts; the active LangGraph path uses create_unified_tool_registry below.
 def create_tool_registry(
     db: Session,
     user_id: UUID,
 ) -> ToolRegistry:
-    """
-    Create a ToolRegistry for one authenticated user.
-
-    The application supplies user_id from authentication/session context.
-    The LLM never supplies or controls user identity.
-    """
-
-    # ---------------------------------------------------------
-    # Repositories
-    # ---------------------------------------------------------
-
-    document_repository = DocumentRepository(
-        db=db,
-    )
-
-    chunk_repository = DocumentChunkRepository(
-        db=db,
-    )
-
-    conversation_repository = ConversationRepository(
-        db=db,
-    )
-
-    message_repository = MessageRepository(
-        db=db,
-    )
-
-    # ---------------------------------------------------------
-    # RAG dependencies
-    # ---------------------------------------------------------
-
-    embedder = GeminiEmbedder()
-
-    semantic_retriever = SemanticRetriever(
-        repository=chunk_repository,
-        embedder=embedder,
-    )
-
-    bm25_retriever = BM25Retriever(
-        repository=chunk_repository,
-    )
-
-    hybrid_retriever = HybridRetriever(
-        semantic_retriever=semantic_retriever,
-        bm25_retriever=bm25_retriever,
-    )
-
-    reranker = CrossEncoderReranker()
-
-    rag_service = RAGService(
-        document_repository=document_repository,
-        chunk_repository=chunk_repository,
-        retriever=hybrid_retriever,
-        reranker=reranker,
-    )
-
-    # ---------------------------------------------------------
-    # External services
-    # ---------------------------------------------------------
-
-    web_search_service = WebSearchService(
-        api_key=settings.TAVILY_API_KEY,
-    )
-
-    # ---------------------------------------------------------
-    # Tools
-    # ---------------------------------------------------------
-
-    document_search_tool = DocumentSearchTool(
-        rag_service=rag_service,
-        user_id=str(user_id),
-    )
-
-    workspace_stats_tool = WorkspaceStatsTool(
-        document_repository=document_repository,
-        chunk_repository=chunk_repository,
-        conversation_repository=conversation_repository,
-        message_repository=message_repository,
-        user_id=user_id,
-    )
-
-    web_search_tool = WebSearchTool(
-        search_service=web_search_service,
-    )
-
-    # ---------------------------------------------------------
-    # Registry
-    # ---------------------------------------------------------
+    """Build the original synchronous registry containing only native tools."""
 
     registry = ToolRegistry()
 
-    registry.register(
-        document_search_tool
-    )
+    for tool in build_native_tools(db, user_id):
+        registry.register(tool)
 
-    registry.register(
-        workspace_stats_tool
-    )
+    return registry
 
-    registry.register(
-        web_search_tool
-    )
+
+# This async factory combines native tools with dynamically discovered MCP tools
+# after applying the authenticated user's availability rules.
+async def create_unified_tool_registry(
+    db: Session,
+    user_id: UUID,
+    *,
+    mcp_manager: MCPClientManager | None = None,
+    availability_resolver: ToolAvailabilityResolver | None = None,
+    providers: list[ToolProvider] | None = None,
+) -> ToolRegistry:
+    """Build one user's async unified registry from configured tool providers."""
+    resolver = availability_resolver or StaticToolAvailabilityResolver()
+
+    if providers is None:
+        providers = [
+            NativeToolProvider(
+                db=db,
+                availability_resolver=resolver,
+            )
+        ]
+
+        if mcp_manager is not None:
+            providers.append(
+                MCPToolProvider(
+                    manager=mcp_manager,
+                    availability_resolver=resolver,
+                )
+            )
+
+    factory = UnifiedToolRegistryFactory(providers)
+    return await factory.create(user_id)
+
+
+# This helper lets graph extensions provide either an async unified factory or
+# an older synchronous factory while always giving graph nodes a real registry.
+async def resolve_tool_registry(
+    factory: Callable[..., Any],
+    **kwargs: Any,
+) -> ToolRegistry:
+    """Run a sync or async registry factory and verify its result.
+
+    Graph nodes use this compatibility helper so tests or older callers can
+    still provide a synchronous factory while MCP-aware factories run
+    asynchronously.
+    """
+
+    registry = factory(**kwargs)
+    if inspect.isawaitable(registry):
+        registry = await registry
+
+    if not isinstance(registry, ToolRegistry) and not hasattr(
+        registry,
+        "get_all_tools",
+    ):
+        raise TypeError("Tool registry factory returned an invalid registry.")
 
     return registry

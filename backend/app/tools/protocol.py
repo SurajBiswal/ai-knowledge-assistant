@@ -1,3 +1,10 @@
+"""Small Pydantic message models for generic tool calls and results.
+
+These types document the boundary between model-requested arguments and
+application-produced results. The active LangGraph state uses closely related
+TypedDict structures in ``app.graph.state``.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -10,8 +17,8 @@ class ToolCall(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    tool: str = Field(min_length=1)
-    arguments: dict[str, Any] = Field(default_factory=dict)
+    tool: str = Field(min_length=1)  # Registry name requested by the model.
+    arguments: dict[str, Any] = Field(default_factory=dict)  # Tool input values.
 
 
 class ToolResult(BaseModel):
@@ -19,9 +26,9 @@ class ToolResult(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    tool: str = Field(min_length=1)
-    result: dict[str, Any] = Field(default_factory=dict)
-    error: str | None = None
+    tool: str = Field(min_length=1)  # Tool that was executed.
+    result: dict[str, Any] = Field(default_factory=dict)  # Structured output.
+    error: str | None = None  # Safe failure text when execution did not succeed.
 
 
 class ToolMessage(BaseModel):
@@ -34,5 +41,5 @@ class ToolMessage(BaseModel):
 
 
 def normalize_tool_call(name: str, arguments: dict[str, Any] | None) -> ToolCall:
-    """Normalize a provider-specific function call into our application shape."""
+    """Convert a provider call name/arguments into the shared ToolCall model."""
     return ToolCall(tool=name, arguments=arguments or {})

@@ -1,3 +1,10 @@
+"""Build the active LangGraph conversation workflow.
+
+ChatService creates this graph for a message. The Agent Node selects the user's
+active LLM and available tools. If the model requests tools, the Tool Node runs
+them and returns their results to the same model for the final answer.
+"""
+
 from sqlalchemy.orm import Session
 
 from langgraph.graph import (
@@ -16,13 +23,19 @@ from app.graph.routing import (
     should_use_tool,
 )
 from app.graph.state import ChatState
+from app.llm.factory import LLMProviderFactory
+from app.tools.tool_registry_factory import create_unified_tool_registry
 
 
+# Build one graph whose Agent and Tool Node share the same user-scoped registry.
 def create_graph(
     db: Session,
+    *,
+    tool_registry_factory=create_unified_tool_registry,
+    llm_provider_factory=LLMProviderFactory,
 ):
     """
-    Create the Part 7 LangGraph tool-calling workflow.
+    Create and compile the provider-neutral tool-calling workflow.
 
     Architecture:
 
@@ -52,9 +65,10 @@ def create_graph(
                          ▼         ▼
                       Tool Node   END
 
-    The user-selected LLM decides whether a tool is required.
-
-    LangGraph controls routing and execution flow.
+    ``db`` is passed to factories that need repositories. Optional factories
+    allow tests or later runtime configuration to supply different tools/LLMs.
+    The user-selected LLM decides whether a tool is required; LangGraph only
+    controls the execution order.
     """
 
     builder = StateGraph(
@@ -69,6 +83,8 @@ def create_graph(
         "agent",
         create_agent_node(
             db=db,
+            tool_registry_factory=tool_registry_factory,
+            llm_provider_factory=llm_provider_factory,
         ),
     )
 
@@ -76,6 +92,7 @@ def create_graph(
         "tools",
         create_tool_node(
             db=db,
+            tool_registry_factory=tool_registry_factory,
         ),
     )
 

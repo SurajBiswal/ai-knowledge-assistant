@@ -1,3 +1,10 @@
+"""Legacy single-node Gemini tool-calling graph implementation.
+
+The active graph separates provider-neutral model work into ``agent.py`` and
+tool execution into ``tools.py``. This older factory remains for compatibility
+with earlier experiments and uses the native-only registry.
+"""
+
 from __future__ import annotations
 
 from uuid import UUID
@@ -16,14 +23,12 @@ from app.tools.tool_registry_factory import (
 def create_tool_calling_node(
     db: Session,
 ):
-    """
-    Create the LangGraph node responsible for the complete
-    LLM-controlled tool-calling flow.
-    """
+    """Return the older node that delegates directly to ToolCallingService."""
 
     def tool_calling_node(
         state: ChatState,
     ) -> dict:
+        """Build native tools for one user and request a legacy Gemini response."""
 
         query = state["query"]
 

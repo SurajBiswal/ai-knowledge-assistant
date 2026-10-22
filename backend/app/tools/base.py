@@ -1,3 +1,10 @@
+"""Base class for synchronous native application tools.
+
+Concrete tools declare Pydantic input/output models, expose a definition to the
+LLM, validate model-supplied arguments, and implement their own ``execute``
+method. MCP tools use a compatible adapter rather than inheriting this class.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -26,10 +33,10 @@ class BaseTool(ABC, Generic[InputSchemaT, OutputSchemaT]):
     Concrete tools should implement only their own application capability.
     """
 
-    name: str
-    description: str
-    input_schema: Type[InputSchemaT]
-    output_schema: Type[OutputSchemaT]
+    name: str  # Unique public name used by the registry and LLM.
+    description: str  # Plain-language help used by the LLM to select the tool.
+    input_schema: Type[InputSchemaT]  # Validates model-generated arguments.
+    output_schema: Type[OutputSchemaT]  # Validates data returned to the model.
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Validate the required tool metadata at class-definition time."""
@@ -54,14 +61,14 @@ class BaseTool(ABC, Generic[InputSchemaT, OutputSchemaT]):
             )
 
     def validate_input(self, arguments: InputSchemaT | dict[str, Any]) -> InputSchemaT:
-        """Validate raw tool arguments using the declared Pydantic schema."""
+        """Return validated input, converting a raw dictionary when necessary."""
         if isinstance(arguments, self.input_schema):
             return arguments
 
         return self.input_schema.model_validate(arguments)
 
     def validate_output(self, result: OutputSchemaT | dict[str, Any]) -> OutputSchemaT:
-        """Validate and normalize the structured result returned by a tool."""
+        """Return validated output, converting a raw dictionary when necessary."""
         if isinstance(result, self.output_schema):
             return result
 

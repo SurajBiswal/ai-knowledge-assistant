@@ -1,3 +1,10 @@
+"""Pydantic input and output models for native application tools.
+
+The LLM receives JSON Schemas generated from these classes. Before execution,
+``BaseTool`` validates model-supplied arguments; outputs are validated again
+before they are returned through LangGraph.
+"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,7 +21,7 @@ class ToolInputModel(BaseModel):
 
 
 class ToolOutputModel(BaseModel):
-    """Base configuration for all structured tool outputs."""
+    """Base output model that rejects fields outside the declared contract."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -24,7 +31,7 @@ class ToolOutputModel(BaseModel):
 # ---------------------------------------------------------------------------
 
 class SearchDocumentsInput(ToolInputModel):
-    """Arguments accepted by the future search_documents tool."""
+    """Search phrase and result limit accepted by ``DocumentSearchTool``."""
 
     query: str = Field(
         ...,
@@ -40,16 +47,18 @@ class SearchDocumentsInput(ToolInputModel):
 
 
 class DocumentSearchResult(ToolOutputModel):
-    """One normalized document-search result."""
+    """One retrieved passage and its source and relevance information."""
 
+    document_id: str | None = None
     document: str
+    page: int | None = None
     chunk_index: int
     content: str
     score: float
 
 
 class SearchDocumentsOutput(ToolOutputModel):
-    """Structured result returned by the future search_documents tool."""
+    """Complete document-search response returned to the selected LLM."""
 
     results: list[DocumentSearchResult] = Field(default_factory=list)
 
@@ -59,11 +68,11 @@ class SearchDocumentsOutput(ToolOutputModel):
 # ---------------------------------------------------------------------------
 
 class WorkspaceStatsInput(ToolInputModel):
-    """No user-supplied arguments are required for workspace statistics."""
+    """Workspace statistics need no model-supplied arguments."""
 
 
 class WorkspaceStatsOutput(ToolOutputModel):
-    """Read-only workspace statistics returned by the future tool."""
+    """Counts of the authenticated user's stored workspace records."""
 
     documents: int = Field(ge=0)
     chunks: int = Field(ge=0)
@@ -76,7 +85,7 @@ class WorkspaceStatsOutput(ToolOutputModel):
 # ---------------------------------------------------------------------------
 
 class WebSearchInput(ToolInputModel):
-    """Arguments accepted by the web_search tool."""
+    """Web query and maximum result count accepted by ``WebSearchTool``."""
 
     query: str = Field(
         ...,
@@ -92,7 +101,7 @@ class WebSearchInput(ToolInputModel):
 
 
 class WebSearchResult(ToolOutputModel):
-    """One normalized web-search result."""
+    """Normalized title, URL, snippet, and domain for one web result."""
 
     title: str = Field(
         description="Title of the web page.",
@@ -109,7 +118,7 @@ class WebSearchResult(ToolOutputModel):
 
 
 class WebSearchOutput(ToolOutputModel):
-    """Structured result returned by the web_search tool."""
+    """Complete web-search response returned to the selected LLM."""
 
     results: list[WebSearchResult] = Field(
         default_factory=list,

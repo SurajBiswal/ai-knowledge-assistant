@@ -1,3 +1,10 @@
+"""Conversation storage and LangGraph chat orchestration.
+
+Conversation API routes call this service. It checks for an active user-owned
+LLM profile, stores messages through repositories, invokes the asynchronous
+LangGraph agent/tool loop, and saves the final assistant response.
+"""
+
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -10,19 +17,21 @@ from app.repositories.conversation_repository import (
 from app.repositories.message_repository import (
     MessageRepository,
 )
-# STREAMING: Import the streaming response function from Gemini service
+# The legacy Gemini helper is used only to generate a short conversation title.
 from app.services.gemini_service import (
     generate_conversation_title,
 )
 
 
 class ChatService:
+    """Join conversation persistence with user-specific LLM/tool execution."""
 
     def __init__(
         self,
         conversation_repository: ConversationRepository,
         message_repository: MessageRepository,
     ):
+        """Store both repositories and their shared request database session."""
         self.conversation_repository = conversation_repository
         self.message_repository = message_repository
         self.db = conversation_repository.db
@@ -33,6 +42,7 @@ class ChatService:
         title: str,
         mode: str = "chat",
     ):
+        """Create and return a conversation owned by ``user_id``."""
         return self.conversation_repository.create(
             user_id=user_id,
             title=title,
@@ -43,6 +53,7 @@ class ChatService:
         self,
         conversation_id: UUID,
     ):
+        """Return a conversation by ID, or None when it does not exist."""
         return self.conversation_repository.get_by_id(
             conversation_id
         )
@@ -53,6 +64,7 @@ class ChatService:
         conversation_id: UUID,
         title: str,
     ):
+        """Verify ownership, rename the conversation, and return it."""
         conversation = self.get_conversation(conversation_id)
 
         if not conversation:
@@ -84,6 +96,7 @@ class ChatService:
         self,
         user_id: UUID,
     ):
+        """Return conversations belonging to one authenticated user."""
         return self.conversation_repository.list_by_user(
             user_id
         )
@@ -92,6 +105,7 @@ class ChatService:
         self,
         conversation_id: UUID,
     ):
+        """Delete a conversation by ID and return whether it existed."""
         return self.conversation_repository.delete(
             conversation_id
         )
@@ -100,20 +114,23 @@ class ChatService:
         self,
         conversation_id: UUID,
     ):
+        """Return all stored messages for one conversation."""
         return self.message_repository.list_by_conversation(
             conversation_id
         )
 
     def require_configured_llm(self, *, user_id: UUID) -> None:
-        """Fail before a chat response begins when no usable profile exists."""
+        """Stop chat early when the user has no tested active LLM profile."""
         LLMProviderFactory(db=self.db).require_active_profile(user_id=user_id)
 
-# This method handles sending a user message to the AI model, saving both the user and assistant messages to the database, and returning the assistant's response.
-    def send_message(
-    self,
-    conversation_id: UUID,
-    user_message: str,
+    # This method awaits the graph so its asynchronous MCP Tool Node can run,
+    # then saves the completed message using the existing repositories.
+    async def send_message(
+        self,
+        conversation_id: UUID,
+        user_message: str,
     ):
+        """Run one complete graph turn, save the answer, and return its Message."""
         # Fetch the conversation from DB
         conversation = self.get_conversation(
             conversation_id
@@ -163,15 +180,15 @@ class ChatService:
             }
             for msg in history
         ]
-        
+
         try:
             graph = create_graph(self.db)
 
-            result = graph.invoke(
+            result = await graph.ainvoke(
                 {
                     "user_id": str(conversation.user_id),
                     "conversation_id": str(conversation_id),
-                    "query": user_message,          # Fixed
+                    "query": user_message,
                     "messages": graph_messages,
                 }
             )
@@ -196,14 +213,14 @@ class ChatService:
 
         return assistant_message
 
-    # STREAMING: New method that yields AI response chunks in real-time
-    # This allows frontend to display text gradually as it's being generated
-    
-    def send_message_stream(
+    # This async generator waits for the tool-capable graph and remains directly
+    # consumable by FastAPI's StreamingResponse without blocking MCP execution.
+    async def send_message_stream(
         self,
         conversation_id: UUID,
         user_message: str,
     ):
+        """Run one graph turn and yield its completed answer as one text chunk."""
 
         # ---------------------------------------------------------
         # Fetch conversation
@@ -284,7 +301,7 @@ class ChatService:
                 self.db
             )
 
-            result = graph.invoke(
+            result = await graph.ainvoke(
                 {
                     "user_id": str(
                         conversation.user_id

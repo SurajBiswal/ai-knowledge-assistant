@@ -1,3 +1,10 @@
+"""Encrypt and decrypt user-owned API credentials.
+
+LLMProviderService encrypts keys before saving profiles. LLMProviderFactory
+decrypts them only while creating a runtime client. API responses never expose
+the encrypted value or plaintext key.
+"""
+
 from __future__ import annotations
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -14,6 +21,7 @@ class CredentialEncryptionService:
     """
 
     def __init__(self, encryption_key: str | None = None) -> None:
+        """Create a Fernet cipher from an explicit key or application setting."""
         key = encryption_key or settings.CREDENTIAL_ENCRYPTION_KEY
 
         if not key:
@@ -29,12 +37,7 @@ class CredentialEncryptionService:
             ) from exc
 
     def encrypt(self, value: str) -> str:
-        """
-        Encrypt a plaintext credential.
-
-        Returns:
-            Encrypted credential as a string.
-        """
+        """Return a database-safe encrypted string for a plaintext credential."""
         if not value or not value.strip():
             raise ValueError("Credential cannot be empty.")
 
@@ -45,16 +48,7 @@ class CredentialEncryptionService:
         return encrypted.decode("utf-8")
 
     def decrypt(self, encrypted_value: str) -> str:
-        """
-        Decrypt an encrypted credential.
-
-        Returns:
-            Original plaintext credential.
-
-        Raises:
-            ValueError: If the encrypted value is invalid or cannot
-                        be decrypted using the configured key.
-        """
+        """Return plaintext or raise ValueError when the value/key is invalid."""
         if not encrypted_value or not encrypted_value.strip():
             raise ValueError("Encrypted credential cannot be empty.")
 

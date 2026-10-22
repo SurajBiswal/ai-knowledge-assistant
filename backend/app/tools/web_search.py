@@ -1,3 +1,9 @@
+"""Native tool that lets the LLM request current public web information.
+
+The tool validates the query, delegates external API details to
+``WebSearchService``, and returns normalized results through Pydantic schemas.
+"""
+
 from __future__ import annotations
 
 from app.services.web_search_service import WebSearchService
@@ -12,11 +18,10 @@ from app.tools.schemas import (
 class WebSearchTool(
     BaseTool[WebSearchInput, WebSearchOutput]
 ):
-    """
-    Tool exposed to the LLM for searching the public web.
+    """Expose Tavily-backed search under the public name ``web_search``.
 
     The tool validates structured arguments and delegates the actual
-    web-search operation to WebSearchService.
+    web-search operation to ``WebSearchService``.
     """
 
     name = "web_search"
@@ -34,15 +39,14 @@ class WebSearchTool(
         self,
         search_service: WebSearchService,
     ) -> None:
+        """Store the web-search service used when the tool executes."""
         self.search_service = search_service
 
     def execute(
         self,
         arguments: WebSearchInput,
     ) -> WebSearchOutput:
-        """
-        Validate input, execute web search, and return structured results.
-        """
+        """Validate model arguments, run the search, and validate its output."""
 
         validated_arguments = self.validate_input(arguments)
 

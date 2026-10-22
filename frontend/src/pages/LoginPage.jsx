@@ -48,16 +48,16 @@ export default function LoginPage({ onLoginSuccess }) {
           <Mark size={34} />
           <div>
             <p className="font-display text-lg tracking-wide">KnowledgeAI</p>
-            <p className="text-[11px] font-mono uppercase tracking-widest text-paper-400">Your archive, indexed</p>
+            <p className="text-[11px] font-mono uppercase tracking-widest text-paper-400">Autonomous Knowledge Intelligence</p>
           </div>
         </div>
 
         <div className="max-w-sm">
           <p className="font-display text-3xl leading-snug text-paper-100">
-            Every answer, <em className="text-mustard not-italic font-medium">traced back</em> to its source.
+            Autonomous reasoning, <em className="text-mustard not-italic font-medium">grounded with proof.</em>
           </p>
           <p className="mt-4 text-sm text-paper-400 leading-relaxed">
-            Upload your documents and ask questions in plain language. KnowledgeAI cites the exact page and passage behind every response.
+            An agentic workspace built with cyclical reasoning, multi-stage hybrid retrieval, and neural reranking. It doesn't just search your data—it investigates, verifies, and executes with deterministic provenance.
           </p>
 
           {/* Citation preview card */}
@@ -66,13 +66,14 @@ export default function LoginPage({ onLoginSuccess }) {
               <svg className="w-4 h-4 text-moss flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
-              <span className="text-sm font-medium text-paper-100">SSO_Onboarding_Guide.docx</span>
+              <span className="text-sm font-medium text-paper-100">System_Architecture.pdf</span>
+              <span className="ml-auto text-[11px] font-mono text-paper-400">page 14</span>
             </div>
             <p className="mt-2.5 text-sm text-paper-400 italic leading-relaxed">
-              "After successful login, SSO redirects the user back to the configured callback URL…"
+              "Neural cross-encoder scoring applied across hybrid candidate pool to eliminate semantic drift…"
             </p>
             <span className="mt-2.5 inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-mono font-semibold text-moss bg-moss-tint/20 border border-moss/30">
-              " page 4, paragraph 2
+              verified provenance
             </span>
           </div>
         </div>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from uuid import UUID
 
 from app.database.session import SessionLocal
@@ -12,6 +13,7 @@ from app.services.chat_service import ChatService
 CONVERSATION_ID = UUID("580fc6c3-b356-408f-bdbd-696d9edb0c27")
 
 
+# This helper runs the now-asynchronous chat service from the manual test script.
 def run_test(
     chat_service: ChatService,
     label: str,
@@ -23,9 +25,11 @@ def run_test(
     print(f"USER: {question}")
 
     try:
-        result = chat_service.send_message(
-            conversation_id=CONVERSATION_ID,
-            user_message=question,
+        result = asyncio.run(
+            chat_service.send_message(
+                conversation_id=CONVERSATION_ID,
+                user_message=question,
+            )
         )
 
         print("\nASSISTANT:")
@@ -36,6 +40,7 @@ def run_test(
         print(f"{type(exc).__name__}: {exc}")
 
 
+# This entry point runs the manual chat scenarios with one reusable DB session.
 def main() -> None:
     db = SessionLocal()
 

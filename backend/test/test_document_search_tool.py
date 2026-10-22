@@ -16,7 +16,7 @@ def make_chunk(
         document_id=document_id,
         chunk_index=chunk_index,
         chunk_text=text,
-        metadata={"filename": filename},
+        metadata={"filename": filename, "page": 3},
         score=float(score),
     )
 
@@ -41,7 +41,7 @@ def test_search_documents_tool_uses_rag_service():
         ),
     ]
 
-    tool = DocumentSearchTool(rag_service)
+    tool = DocumentSearchTool(rag_service, user_id="user-1")
 
     result = tool.execute(
         SearchDocumentsInput(
@@ -52,12 +52,15 @@ def test_search_documents_tool_uses_rag_service():
 
     rag_service.retrieve.assert_called_once_with(
         question="How does JWT authentication work?",
+        user_id="user-1",
         top_k=2,
     )
 
     assert len(result.results) == 2
 
     assert result.results[0].document == "authentication.pdf"
+    assert result.results[0].document_id == "doc-1"
+    assert result.results[0].page == 3
     assert result.results[0].chunk_index == 4
     assert result.results[0].content.startswith("JWT is")
     assert result.results[0].score == 0.91
@@ -65,7 +68,7 @@ def test_search_documents_tool_uses_rag_service():
 
 def test_search_documents_tool_validates_input():
     rag_service = Mock()
-    tool = DocumentSearchTool(rag_service)
+    tool = DocumentSearchTool(rag_service, user_id="user-1")
 
     try:
         tool.execute(
@@ -84,7 +87,7 @@ def test_search_documents_tool_returns_empty_results():
     rag_service = Mock()
     rag_service.retrieve.return_value = []
 
-    tool = DocumentSearchTool(rag_service)
+    tool = DocumentSearchTool(rag_service, user_id="user-1")
 
     result = tool.execute(
         {

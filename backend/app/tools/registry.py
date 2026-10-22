@@ -1,8 +1,26 @@
+"""Central lookup and execution table for native and MCP tools.
+
+Tool providers populate one ``ToolRegistry`` for the authenticated user. The
+Agent Node reads definitions from it, and the Tool Node uses the exact same
+registry to execute the model's selected name.
+"""
+
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 
+# This error tells startup or discovery code that two different tools would be
+# exposed to the LLM under the same public name.
+class ToolNameCollisionError(ValueError):
+    """Raised when two providers would expose the same public tool name."""
+
+    pass
+
+
+# This registry is the single lookup table used for both local and MCP tools.
+# It does not care where a tool came from; it only validates names and executes.
 class ToolRegistry:
     """
     Central registry for application tools.
@@ -33,11 +51,13 @@ class ToolRegistry:
     """
 
     def __init__(self) -> None:
+        """Start with an empty name-to-tool mapping."""
+        # This dictionary is private so tools can be added only through register.
         self._tools: dict[str, Any] = {}
 
     def register(self, tool: Any) -> None:
         """
-        Register a tool using its unique name.
+        Register a tool using its unique public name.
 
         The tool must expose a `name` attribute.
         """
@@ -57,9 +77,7 @@ class ToolRegistry:
         self._tools[tool_name] = tool
 
     def get_tool(self, name: str) -> Any:
-        """
-        Return a registered tool by name.
-        """
+        """Return a registered tool or raise a clear error for an unknown name."""
 
         try:
             return self._tools[name]
@@ -69,9 +87,7 @@ class ToolRegistry:
             ) from exc
 
     def list_tools(self) -> list[str]:
-        """
-        Return the names of all registered tools.
-        """
+        """Return registered names in provider registration order."""
 
         return list(self._tools.keys())
 
@@ -109,3 +125,21 @@ class ToolRegistry:
         tool = self.get_tool(name)
 
         return tool.execute(arguments)
+
+    async def execute_async(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+    ) -> Any:
+        """Await an MCP tool or run a native tool through its sync method."""
+        tool = self.get_tool(name)
+
+        async_execute = getattr(tool, "execute_async", None)
+        if callable(async_execute):
+            return await async_execute(arguments)
+
+        result = tool.execute(arguments)
+        if inspect.isawaitable(result):
+            return await result
+
+        return result
