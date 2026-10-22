@@ -1,3 +1,10 @@
+"""Legacy Gemini-specific tool-schema conversion helpers.
+
+This service belongs to the older direct-Gemini tool-calling path. The active
+chat graph now uses provider-neutral clients in ``app.llm`` plus separate agent
+and Tool Nodes. The file remains for compatibility with older scripts/tests.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -42,6 +49,7 @@ class ToolCallingService:
         tool_registry: ToolRegistry,
         client: genai.Client | None = None,
     ) -> None:
+        """Store a registry and create the legacy Gemini client when omitted."""
         self.tool_registry = tool_registry
 
         self.client = client or genai.Client(

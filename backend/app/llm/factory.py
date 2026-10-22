@@ -1,4 +1,9 @@
-"""Runtime selection of an authenticated user's active tool-calling LLM."""
+"""Create the runtime LLM client selected by an authenticated user.
+
+The LangGraph agent calls this factory with ``user_id``. It reads that user's
+active profile, validates its provider, decrypts the saved key only at runtime,
+and returns a provider-neutral tool-calling client.
+"""
 
 from __future__ import annotations
 
@@ -41,6 +46,8 @@ class LLMProviderFactory:
             OpenAICompatibleToolCallingLLM
         ),
     ) -> None:
+        """Store repositories and client builders used for runtime selection."""
+        # Repositories always use the same request-scoped database session.
         self.profile_repository = (
             profile_repository or LLMProviderProfileRepository(db)
         )
@@ -105,6 +112,7 @@ class LLMProviderFactory:
         return self._create_from_profile(profile)
 
     def _create_from_profile(self, profile) -> ToolCallingLLM:
+        """Decrypt one validated profile and construct its protocol adapter."""
         self._validate_profile_provider(profile)
 
         try:
@@ -127,6 +135,7 @@ class LLMProviderFactory:
             ) from exc
 
     def _validate_profile_provider(self, profile) -> None:
+        """Reject missing, disabled, or unsupported provider definitions."""
         provider = self.provider_repository.get_by_id(profile.provider_id)
         if provider is None:
             raise LLMProviderError(
@@ -141,6 +150,7 @@ class LLMProviderFactory:
             )
 
     def _get_encryption_service(self) -> CredentialEncryptionService:
+        """Create encryption support only when a credential must be decrypted."""
         # Defer configuration validation until a profile is actually used.
         if self._credential_encryption_service is None:
             self._credential_encryption_service = CredentialEncryptionService()

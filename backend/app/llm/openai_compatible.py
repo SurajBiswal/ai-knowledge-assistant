@@ -1,4 +1,9 @@
-"""OpenAI-compatible HTTP implementation of the tool-calling contract."""
+"""OpenAI-compatible HTTP implementation of the tool-calling contract.
+
+``LLMProviderFactory`` builds this client from a user's active profile. The same
+HTTP format supports many providers because the endpoint URL and model name come
+from the profile rather than being hardcoded in this file.
+"""
 
 from __future__ import annotations
 
@@ -21,8 +26,8 @@ from app.llm.base import (
 class OpenAICompatibleToolCallingLLM(ToolCallingLLM):
     """Client for `/chat/completions` endpoints that support OpenAI tools.
 
-    Phase 8 will construct this adapter from an authenticated user's active
-    profile.  It deliberately uses ``httpx`` rather than a provider SDK so the
+    ``LLMProviderFactory`` constructs this adapter from the authenticated user's
+    active profile. It uses ``httpx`` rather than a provider SDK so the
     same protocol works for Qwen, DeepSeek, OpenRouter, vLLM, and similar
     endpoints.
     """
@@ -36,6 +41,7 @@ class OpenAICompatibleToolCallingLLM(ToolCallingLLM):
         timeout_seconds: int = 60,
         client: httpx.Client | Any | None = None,
     ) -> None:
+        """Validate connection settings and create or reuse an HTTP client."""
         normalized_base_url = base_url.strip().rstrip("/")
         if not normalized_base_url:
             raise ValueError("Base URL cannot be empty.")
@@ -46,12 +52,15 @@ class OpenAICompatibleToolCallingLLM(ToolCallingLLM):
         if timeout_seconds <= 0:
             raise ValueError("Timeout must be greater than zero.")
 
+        # Final URL and model are sent on every chat-completions request.
         self.endpoint = self._chat_completions_url(normalized_base_url)
         self.model = model.strip()
+        # Headers contain the decrypted key only inside this runtime client.
         self._headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
+        # Injected clients belong to the caller; internally created clients close here.
         self._owns_client = client is None
         self.client = client or httpx.Client(timeout=timeout_seconds)
 
@@ -65,6 +74,7 @@ class OpenAICompatibleToolCallingLLM(ToolCallingLLM):
         conversation: ToolCallingConversation,
         tools: Sequence[ToolDefinition],
     ) -> ModelResponse:
+        """Send normalized history/tools and return normalized text/tool calls."""
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": self._to_openai_messages(conversation),
@@ -108,12 +118,14 @@ class OpenAICompatibleToolCallingLLM(ToolCallingLLM):
 
     @staticmethod
     def _chat_completions_url(base_url: str) -> str:
+        """Accept either a base API URL or the complete chat-completions URL."""
         if base_url.endswith("/chat/completions"):
             return base_url
         return f"{base_url}/chat/completions"
 
     @staticmethod
     def _parse_response(payload: Mapping[str, Any]) -> ModelResponse:
+        """Validate provider JSON and turn it into the shared response types."""
         try:
             message = payload["choices"][0]["message"]
         except (KeyError, IndexError, TypeError) as exc:
@@ -167,6 +179,7 @@ class OpenAICompatibleToolCallingLLM(ToolCallingLLM):
     def _to_openai_messages(
         conversation: ToolCallingConversation,
     ) -> list[dict[str, Any]]:
+        """Convert normalized history into OpenAI-compatible message dictionaries."""
         messages: list[dict[str, Any]] = []
 
         for message in conversation.messages:

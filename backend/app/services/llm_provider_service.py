@@ -1,3 +1,10 @@
+"""Business rules for user-specific LLM provider profiles.
+
+The provider-settings API calls this service. It validates ownership and
+provider state, encrypts credentials, records connection tests, and enforces
+the rule that only a successfully tested profile may become active.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,7 +30,7 @@ from app.llm.factory import LLMProviderFactory
 
 @dataclass(frozen=True, slots=True)
 class ProviderConnectionTestResult:
-    """Safe outcome of testing a saved provider profile."""
+    """Safe success flag and message that may be returned to the frontend."""
 
     success: bool
     message: str
@@ -49,6 +56,7 @@ class LLMProviderService:
         credential_encryption_service: CredentialEncryptionService | None = None,
         llm_provider_factory: LLMProviderFactory | None = None,
     ) -> None:
+        """Create repositories, encryption support, and the runtime LLM factory."""
         self.db = db
 
         self.provider_repository = LLMProviderRepository(db)
@@ -77,6 +85,7 @@ class LLMProviderService:
         *,
         provider_id: UUID,
     ) -> LLMProvider:
+        """Return an enabled provider or raise a user-friendly validation error."""
         provider = self.provider_repository.get_by_id(provider_id)
 
         if provider is None:
@@ -104,6 +113,7 @@ class LLMProviderService:
         structured_json_responses: bool = True,
         is_active: bool = False,
     ) -> LLMProviderProfile:
+        """Validate and save an inactive profile with an encrypted API key."""
 
         if is_active:
             raise ValueError(
@@ -160,6 +170,7 @@ class LLMProviderService:
         *,
         user_id: UUID,
     ) -> list[LLMProviderProfile]:
+        """Return all profiles owned by one user."""
 
         return self.profile_repository.list_by_user(
             user_id=user_id,
@@ -175,6 +186,7 @@ class LLMProviderService:
         profile_id: UUID,
         user_id: UUID,
     ) -> LLMProviderProfile:
+        """Return an owned profile or raise when it is missing or belongs elsewhere."""
 
         profile = self.profile_repository.get_by_id(
             profile_id=profile_id,
@@ -195,6 +207,7 @@ class LLMProviderService:
         *,
         user_id: UUID,
     ) -> LLMProviderProfile | None:
+        """Return the profile currently selected for this user's chat requests."""
 
         return self.profile_repository.get_active_by_user(
             user_id=user_id,
@@ -217,6 +230,7 @@ class LLMProviderService:
         timeout_seconds: int | None = None,
         structured_json_responses: bool | None = None,
     ) -> LLMProviderProfile:
+        """Validate supplied changes and invalidate stale connection-test state."""
 
         profile = self.get_profile(
             profile_id=profile_id,
@@ -330,6 +344,7 @@ class LLMProviderService:
         profile_id: UUID,
         user_id: UUID,
     ) -> None:
+        """Delete an owned profile unless it is currently active."""
 
         profile = self.get_profile(
             profile_id=profile_id,
@@ -361,6 +376,7 @@ class LLMProviderService:
         profile_id: UUID,
         user_id: UUID,
     ) -> LLMProviderProfile:
+        """Activate a successfully tested profile and deactivate the old one."""
 
         profile = self.get_profile(
             profile_id=profile_id,
@@ -399,7 +415,7 @@ class LLMProviderService:
         profile_id: UUID,
         user_id: UUID,
     ) -> ProviderConnectionTestResult:
-        """Verify a user-owned profile and persist a safe test outcome."""
+        """Call the configured model once and save a safe success/failure result."""
         profile = self.get_profile(
             profile_id=profile_id,
             user_id=user_id,
@@ -458,6 +474,7 @@ class LLMProviderService:
         status: str,
         error: str | None,
     ) -> None:
+        """Persist connection-test information or fail if the profile disappeared."""
         profile = self.profile_repository.record_connection_test(
             profile_id=profile_id,
             user_id=user_id,

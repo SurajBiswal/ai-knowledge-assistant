@@ -1,3 +1,10 @@
+"""Combine semantic and keyword retrieval into one candidate list.
+
+``RAGService`` calls this retriever for document search. It rewrites the query
+once, asks ``SemanticRetriever`` and ``BM25Retriever`` for candidates, removes
+duplicates, and returns the merged list for optional cross-encoder reranking.
+"""
+
 from app.rag.bm25_retriever import BM25Retriever
 from app.rag.retriever import (
     RetrievedChunk,
@@ -7,6 +14,7 @@ from app.rag.query_rewriter import QueryRewriter
 from uuid import UUID
 
 class HybridRetriever:
+    """Coordinate both retrieval strategies without owning database access."""
 
     def __init__(
         self,
@@ -26,6 +34,7 @@ class HybridRetriever:
 
         self.semantic_retriever = semantic_retriever
         self.bm25_retriever = bm25_retriever
+        # One rewriter is shared so both retrievers receive the same search text.
         self.query_rewriter = QueryRewriter()
 
     def retrieve(
@@ -34,20 +43,7 @@ class HybridRetriever:
     user_id: str,
     top_k: int = 5,
     ) -> list[RetrievedChunk]:
-        """
-    
-            Retrieve relevant document chunks using a hybrid
-            retrieval strategy.
-
-            Workflow:
-                1. Rewrite the user's question into a search query.
-                2. Retrieve semantic (vector) results.
-                3. Retrieve lexical (BM25) results.
-                4. Merge and deduplicate the retrieved chunks.
-                5. Return the final candidate chunks.
-
-            ...
-        """
+        """Rewrite a question, run both searches, and return unique candidates."""
 
         if top_k <= 0:
             return []

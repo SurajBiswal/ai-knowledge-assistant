@@ -1,3 +1,9 @@
+"""Request and response shapes for conversations and chat messages.
+
+The conversation router uses these models to validate frontend input and turn
+SQLAlchemy Conversation and Message objects into predictable JSON responses.
+"""
+
 from datetime import datetime
 from enum import Enum
 from uuid import UUID
@@ -6,12 +12,16 @@ from pydantic import BaseModel, Field
 
 
 class ConversationMode(str, Enum):
+    """Allowed conversation modes accepted when a conversation is created."""
+
     CHAT = "chat"
     RAG = "rag"
     RESEARCH = "research"
 
 
 class CreateConversationRequest(BaseModel):
+    """Title and mode supplied by the frontend for a new conversation."""
+
     title: str = Field(
         min_length=1,
         max_length=500,
@@ -21,6 +31,8 @@ class CreateConversationRequest(BaseModel):
 
 
 class ConversationResponse(BaseModel):
+    """Conversation fields returned to the frontend."""
+
     id: UUID
     user_id: UUID
     title: str
@@ -29,10 +41,14 @@ class ConversationResponse(BaseModel):
     updated_at: datetime
 
     class Config:
+        """Allow Pydantic to read fields from SQLAlchemy model objects."""
+
         from_attributes = True
 
 
 class RenameConversationRequest(BaseModel):
+    """New title supplied when the user renames a conversation."""
+
     title: str = Field(
         min_length=1,
         max_length=500,
@@ -40,12 +56,16 @@ class RenameConversationRequest(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
+    """Text the user wants to send to the assistant."""
+
     content: str = Field(
         min_length=1,
     )
 
 
 class MessageResponse(BaseModel):
+    """Stored user or assistant message returned by the API."""
+
     id: UUID
     conversation_id: UUID
     role: str
@@ -55,4 +75,6 @@ class MessageResponse(BaseModel):
     created_at: datetime
 
     class Config:
+        """Allow Pydantic to read fields from SQLAlchemy model objects."""
+
         from_attributes = True

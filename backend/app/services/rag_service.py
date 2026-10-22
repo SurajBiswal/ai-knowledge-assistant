@@ -1,3 +1,10 @@
+"""Coordinate document indexing and retrieval-augmented generation (RAG).
+
+DocumentService calls ``index_document`` after an upload. DocumentSearchTool
+calls retrieval methods during chat. This service joins extraction, chunking,
+embeddings, hybrid retrieval, reranking, repositories, and context formatting.
+"""
+
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 
@@ -58,6 +65,7 @@ class RAGService:
         retriever: HybridRetriever | None = None,
         reranker: CrossEncoderReranker | None = None,
     ) -> None:
+        """Store repositories and create the components used by RAG operations."""
 
         self.document_repository = document_repository
         self.chunk_repository = chunk_repository

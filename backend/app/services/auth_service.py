@@ -1,3 +1,10 @@
+"""Registration and login business rules.
+
+The auth router calls ``AuthService``. This service checks for duplicate users,
+uses security helpers for password hashing and verification, and delegates user
+storage to ``UserRepository``.
+"""
+
 from app.repositories.user_repository import UserRepository
 from app.core.security import (
     hash_password,
@@ -6,11 +13,13 @@ from app.core.security import (
 )
 
 class AuthService:
+    """Coordinate account creation and authentication without handling HTTP."""
 
     def __init__(
         self,
         user_repository: UserRepository,
     ):
+        """Store the repository used to create and find user records."""
         self.user_repository = user_repository
 
     def register_user(
@@ -19,6 +28,7 @@ class AuthService:
         email: str,
         password: str,
     ):
+        """Create a user after checking email uniqueness and hashing the password."""
         
         existing_user = (
             self.user_repository.get_by_email(
@@ -46,6 +56,7 @@ class AuthService:
         email: str,
         password: str,
     ):
+        """Verify login credentials and return a signed JWT access token."""
         user = self.user_repository.get_by_email(
             email
         )

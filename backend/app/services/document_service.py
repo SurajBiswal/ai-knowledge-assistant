@@ -1,3 +1,10 @@
+"""Business logic for uploading, indexing, listing, and deleting documents.
+
+The document API calls this service. It validates files, stores them under the
+upload directory, saves Document metadata through repositories, and asks
+``RAGService`` to extract, chunk, embed, and index their text.
+"""
+
 from pathlib import Path
 from uuid import uuid4, UUID
 from fastapi import HTTPException, UploadFile, status
@@ -7,14 +14,19 @@ from app.models.user import User
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.document_chunk_repository import DocumentChunkRepository
 from app.services.rag_service import RAGService
+# Directory where accepted uploads are stored using generated filenames.
 UPLOAD_DIR = Path("uploads")
 
 class DocumentService:
+    """Coordinate filesystem work, document persistence, and RAG indexing."""
 
+    # Only formats supported by DocumentExtractor may be uploaded.
     ALLOWED_EXTENSIONS = {"pdf", "docx", "txt"}
+    # Limit memory use and storage by rejecting files larger than 20 MB.
     MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
     def __init__(self, document_repository: DocumentRepository, chunk_repository: DocumentChunkRepository):
+        """Store repositories and build the RAG service used during uploads."""
         self.document_repository = document_repository
         self.chunk_repository = chunk_repository
         self.rag_service = RAGService(
@@ -24,9 +36,11 @@ class DocumentService:
         )
 
     def _create_upload_directory(self) -> None:
+        """Create the upload directory when it does not already exist."""
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
     def _generate_unique_filename(self, original_filename: str) -> str:
+        """Return a random server filename while preserving the file extension."""
         extension = original_filename.rsplit(".", 1)[-1].lower()
         return f"{uuid4()}.{extension}"
 
@@ -35,6 +49,7 @@ class DocumentService:
         current_user: User,
         file: UploadFile,
     ) -> Document:
+        """Validate, save, index, and return one authenticated user's upload."""
 
         if not file.filename:
             raise HTTPException(
@@ -125,10 +140,7 @@ class DocumentService:
         self,
         current_user: User,
     ) -> list[Document]:
-        """
-        Return all documents uploaded by the current user,
-        ordered by newest first.
-        """
+        """Return the current user's documents with newest uploads first."""
         return self.document_repository.list_by_user(current_user.id)
     
 
@@ -137,9 +149,7 @@ class DocumentService:
         current_user: User,
         document_id: UUID,
     ) -> None:
-        """
-        Delete a document by its ID if it belongs to the current user.
-        """
+        """Delete an owned document from both the filesystem and database."""
         document = self.document_repository.get_by_id_and_user(
             document_id=document_id,
             user_id=current_user.id,

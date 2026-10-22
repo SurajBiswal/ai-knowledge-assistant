@@ -1,3 +1,10 @@
+"""Keyword-based retrieval for indexed document chunks.
+
+``HybridRetriever`` uses this class alongside semantic vector search. BM25
+rewards literal word overlap, so it can find useful chunks that embedding-based
+search misses. Chunks are loaded through ``DocumentChunkRepository``.
+"""
+
 from __future__ import annotations
 
 import re
@@ -47,10 +54,13 @@ class BM25Retriever:
     """
 
     def __init__(self, repository: DocumentChunkRepository):
+        """Store the repository and initialize an empty in-memory BM25 cache."""
         self.repository = repository
 
+        # Cached index and matching chunk list used by later searches.
         self._bm25: BM25Okapi | None = None
         self._chunks: list = []
+        # Prevent two request threads from rebuilding the cache simultaneously.
         self._lock = threading.Lock()
 
     def refresh_index(self) -> None:

@@ -1,11 +1,19 @@
+"""Generate fixed-size Gemini embeddings for semantic document search.
+
+RAG indexing embeds every document chunk. ``SemanticRetriever`` embeds the
+user's query with the same model so PostgreSQL pgvector can compare them.
+"""
+
 from google import genai
 
 from app.core.config import settings
 
 
 class GeminiEmbedder:
+    """Wrap Gemini's embedding API and enforce the database vector size."""
 
     def __init__(self):
+        """Create a Gemini client using the application's configured key."""
         self.client = genai.Client(
             api_key=settings.GEMINI_API_KEY
         )
@@ -14,6 +22,7 @@ class GeminiEmbedder:
         self,
         text: str,
     ) -> list[float]:
+        """Return a 768-number embedding for text or raise a clear error."""
 
         try:
             response = self.client.models.embed_content(

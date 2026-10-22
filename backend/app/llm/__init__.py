@@ -1,4 +1,9 @@
-"""Provider-neutral LLM clients used by the agent runtime."""
+"""Public provider-neutral LLM interfaces and implementations.
+
+The graph imports these types instead of depending on Gemini or an individual
+OpenAI-compatible vendor. ``LLMProviderFactory`` selects the user's active
+profile and returns the matching client at runtime.
+"""
 
 from app.llm.base import (
     LLMProviderError,

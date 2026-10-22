@@ -1,3 +1,10 @@
+"""Authentication HTTP endpoints.
+
+This router accepts registration and login requests, creates ``AuthService``
+with a request-scoped database session, and exposes the current authenticated
+user. Business rules stay in the service and repository layers.
+"""
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -28,21 +35,23 @@ from app.core.dependencies import (
 
 from app.models.user import User
 
-# Router for authentication endpoints 
+# All routes in this object are available under /api/auth.
 router = APIRouter(
     prefix="/api/auth",
     tags=["Authentication"],
 )
 
-# Dependency to get the AuthService instance
+# Build the service and repository with the database session for this request.
 def get_auth_service(
     db: Session = Depends(get_db),
 ) -> AuthService:
+    """Build ``AuthService`` with the database session for this request."""
+
     return AuthService(
         UserRepository(db)
     )
 
-# Register endpoint
+# Validate the request and ask AuthService to create a new user.
 @router.post(
     "/register",
     response_model=UserResponse,
@@ -53,6 +62,7 @@ def register(
         get_auth_service
     ),
 ):
+    """Create an account and return the new user's public fields."""
     try:
         return service.register_user(
             name=request.name,
@@ -66,7 +76,7 @@ def register(
             detail=str(e),
         )
     
-# Login endpoint
+# Check the supplied credentials and return a signed access token.
 @router.post(
     "/login",
     response_model=LoginResponse,
@@ -77,6 +87,7 @@ def login(
         get_auth_service
     ),
 ):
+    """Authenticate a user and return the JWT used by protected routes."""
     try:
         token = (
             service.authenticate_user(
@@ -106,4 +117,5 @@ def get_me(
         get_current_user
     ),
 ):
+    """Return the user loaded from the JWT by ``get_current_user``."""
     return current_user

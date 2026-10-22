@@ -1,3 +1,9 @@
+"""Wrapper around the Tavily web-search API.
+
+``WebSearchTool`` calls this service so the tool layer receives a small,
+consistent result shape instead of depending directly on Tavily's raw response.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -12,6 +18,7 @@ class WebSearchService:
     """
 
     def __init__(self, api_key: str) -> None:
+        """Create the Tavily client from the configured application API key."""
         if not api_key:
             raise ValueError("TAVILY_API_KEY is not configured.")
 

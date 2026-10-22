@@ -1,3 +1,9 @@
+"""Request and response shapes for language-model provider settings.
+
+API keys are accepted only on create or update requests. Response models expose
+``api_key_configured`` instead of returning encrypted or decrypted credentials.
+"""
+
 from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
@@ -5,6 +11,8 @@ from pydantic import BaseModel, Field
 
 
 class ProviderResponse(BaseModel):
+    """One enabled provider protocol that a user may configure."""
+
     id: UUID
     code: str
     name: str
@@ -17,6 +25,8 @@ class ProviderResponse(BaseModel):
 
 
 class CreateProviderProfileRequest(BaseModel):
+    """All settings required to save a new user-owned LLM profile."""
+
     provider_id: UUID
     profile_name: str = Field(min_length=1, max_length=100)
     base_url: str = Field(min_length=1, max_length=1000)
@@ -28,6 +38,8 @@ class CreateProviderProfileRequest(BaseModel):
 
 
 class UpdateProviderProfileRequest(BaseModel):
+    """Optional profile fields that may be changed in one update request."""
+
     profile_name: str | None = Field(
         default=None,
         min_length=1,
@@ -56,6 +68,8 @@ class UpdateProviderProfileRequest(BaseModel):
 
 
 class ProviderProfileResponse(BaseModel):
+    """Safe profile details returned without any API-key value."""
+
     id: UUID
     provider_id: UUID
     profile_name: str
@@ -74,14 +88,20 @@ class ProviderProfileResponse(BaseModel):
 
 
 class DeleteProviderProfileResponse(BaseModel):
+    """Confirmation returned after a provider profile is deleted."""
+
     message: str
 
 
 class ProviderConnectionTestResponse(BaseModel):
+    """User-friendly result of testing a saved provider connection."""
+
     success: bool
     message: str
 
 
 class ActivateProviderProfileResponse(BaseModel):
+    """Confirmation and profile returned after activation succeeds."""
+
     message: str
     profile: ProviderProfileResponse

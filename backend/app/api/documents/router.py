@@ -1,3 +1,10 @@
+"""Document upload, listing, and deletion HTTP endpoints.
+
+Authenticated requests are passed to ``DocumentService``. That service stores
+files, creates searchable chunks through the RAG layer, and uses document and
+chunk repositories for database access.
+"""
+
 from uuid import UUID
 
 from fastapi import (
@@ -44,6 +51,7 @@ router = APIRouter(
 def get_document_service(
     db: Session = Depends(get_db),
 ) -> DocumentService:
+    """Build DocumentService with repositories using this request's session."""
     return DocumentService(
         DocumentRepository(db),
         DocumentChunkRepository(db)
@@ -61,6 +69,7 @@ def upload_document(
         get_document_service,
     ),
 ):
+    """Save and index an uploaded file for the authenticated user."""
     return service.upload_document(
         current_user=current_user,
         file=file,
@@ -79,6 +88,7 @@ def list_documents(
         get_document_service,
     ),
 ):
+    """Return only documents owned by the authenticated user."""
     return service.list_documents(
         current_user=current_user,
     )
@@ -97,6 +107,7 @@ def delete_document(
         get_document_service,
     ),
 ):
+    """Delete a user's document, its chunks, and its stored file."""
     service.delete_document(
         current_user=current_user,
         document_id=document_id,

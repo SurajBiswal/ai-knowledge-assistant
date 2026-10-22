@@ -1,4 +1,9 @@
-"""Gemini implementation of the provider-neutral tool-calling contract."""
+"""Gemini implementation of the provider-neutral tool-calling contract.
+
+This adapter converts shared conversation messages and tool definitions into
+Google Gemini SDK objects, then converts Gemini output back into ``ModelResponse``
+so the graph does not depend on provider-specific response classes.
+"""
 
 from __future__ import annotations
 
@@ -29,6 +34,8 @@ class GeminiToolCallingLLM(ToolCallingLLM):
         api_key: str | None = None,
         client: Any | None = None,
     ) -> None:
+        """Store the model name and use an injected or newly created client."""
+        # Model and client are used by every generate call for this conversation.
         self.model = model
         self.client = client or genai.Client(
             api_key=api_key or settings.GEMINI_API_KEY,
@@ -39,6 +46,7 @@ class GeminiToolCallingLLM(ToolCallingLLM):
         conversation: ToolCallingConversation,
         tools: Sequence[ToolDefinition],
     ) -> ModelResponse:
+        """Call Gemini, normalize text/tool calls, and append the assistant turn."""
         try:
             response = self.client.models.generate_content(
                 model=self.model,
@@ -83,6 +91,7 @@ class GeminiToolCallingLLM(ToolCallingLLM):
     def _to_gemini_tools(
         tools: Sequence[ToolDefinition],
     ) -> list[types.Tool]:
+        """Convert shared JSON tool definitions into Gemini declarations."""
         declarations = [
             types.FunctionDeclaration(
                 name=tool.name,
@@ -98,6 +107,7 @@ class GeminiToolCallingLLM(ToolCallingLLM):
     def _to_gemini_contents(
         conversation: ToolCallingConversation,
     ) -> list[types.Content]:
+        """Convert normalized history into Gemini user/model/tool messages."""
         contents: list[types.Content] = []
 
         for message in conversation.messages:
@@ -144,6 +154,7 @@ class GeminiToolCallingLLM(ToolCallingLLM):
     def _system_instruction(
         conversation: ToolCallingConversation,
     ) -> str | None:
+        """Join normalized system messages into Gemini's instruction field."""
         instructions = [
             message.text
             for message in conversation.messages

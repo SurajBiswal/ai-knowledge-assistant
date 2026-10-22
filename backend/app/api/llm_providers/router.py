@@ -1,3 +1,10 @@
+"""HTTP endpoints for user-specific language-model provider profiles.
+
+Every operation gets ``user_id`` from JWT authentication, never from request
+data. The router calls ``LLMProviderService`` for ownership checks, encryption,
+connection testing, and one-active-profile enforcement.
+"""
+
 from uuid import UUID
 
 from fastapi import (
@@ -52,6 +59,7 @@ router = APIRouter(
 def get_llm_provider_service(
     db: Session = Depends(get_db),
 ) -> LLMProviderService:
+    """Build the profile service with this request's database session."""
     return LLMProviderService(
         db=db,
         credential_encryption_service=CredentialEncryptionService(),
@@ -61,6 +69,7 @@ def get_llm_provider_service(
 def _to_provider_profile_response(
     profile,
 ) -> ProviderProfileResponse:
+    """Convert a database profile into a response that never reveals its key."""
     return ProviderProfileResponse(
         id=profile.id,
         provider_id=profile.provider_id,
@@ -86,6 +95,7 @@ def list_providers(
     ),
     db: Session = Depends(get_db),
 ):
+    """Return enabled provider protocols available in the settings UI."""
     provider_repository = LLMProviderRepository(db)
 
     return provider_repository.list_enabled()
@@ -103,6 +113,7 @@ def list_provider_profiles(
         get_llm_provider_service,
     ),
 ):
+    """Return only profiles owned by the authenticated user."""
     profiles = service.list_profiles(
         user_id=current_user.id,
     )
@@ -126,6 +137,7 @@ def create_provider_profile(
         get_llm_provider_service,
     ),
 ):
+    """Validate, encrypt, and save a new provider profile for this user."""
     try:
         profile = service.create_profile(
             user_id=current_user.id,
@@ -161,6 +173,7 @@ def get_provider_profile(
         get_llm_provider_service,
     ),
 ):
+    """Return one profile after the service confirms user ownership."""
     try:
         profile = service.get_profile(
             profile_id=profile_id,
@@ -190,6 +203,7 @@ def update_provider_profile(
         get_llm_provider_service,
     ),
 ):
+    """Update allowed fields without exposing the stored API key."""
     try:
         profile = service.update_profile(
             profile_id=profile_id,
@@ -225,6 +239,7 @@ def delete_provider_profile(
         get_llm_provider_service,
     ),
 ):
+    """Delete a profile after ownership and activation rules are checked."""
     try:
         service.delete_profile(
             profile_id=profile_id,
@@ -255,6 +270,7 @@ def activate_provider_profile(
         get_llm_provider_service,
     ),
 ):
+    """Make a successfully tested profile the user's only active profile."""
     try:
         profile = service.activate_profile(
             profile_id=profile_id,
@@ -286,6 +302,7 @@ def test_provider_profile(
         get_llm_provider_service,
     ),
 ):
+    """Test the saved endpoint, model, and decrypted credential."""
     try:
         result = service.test_profile_connection(
             profile_id=profile_id,

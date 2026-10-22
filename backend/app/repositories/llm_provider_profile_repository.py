@@ -1,3 +1,10 @@
+"""Database operations for user-owned LLM provider profiles.
+
+Every lookup includes ``user_id`` so one user cannot read or modify another
+user's endpoint or encrypted credential. LLMProviderService owns validation and
+transaction decisions; this repository performs the database operations.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -10,9 +17,10 @@ from app.models.llm_provider_profile import LLMProviderProfile
 
 
 class LLMProviderProfileRepository:
-    """Repository for user-specific LLM provider profiles."""
+    """Store and retrieve provider profiles while enforcing user scope."""
 
     def __init__(self, db: Session) -> None:
+        """Store the database session used by all profile operations."""
         self.db = db
 
     def create(
@@ -28,6 +36,7 @@ class LLMProviderProfileRepository:
         structured_json_responses: bool = True,
         is_active: bool = False,
     ) -> LLMProviderProfile:
+        """Add a new profile with an encrypted key to the current transaction."""
         profile = LLMProviderProfile(
             user_id=user_id,
             provider_id=provider_id,
@@ -51,6 +60,7 @@ class LLMProviderProfileRepository:
         profile_id: UUID,
         user_id: UUID,
     ) -> LLMProviderProfile | None:
+        """Return a profile only when both profile ID and owner match."""
         statement = select(LLMProviderProfile).where(
             LLMProviderProfile.id == profile_id,
             LLMProviderProfile.user_id == user_id,
@@ -63,6 +73,7 @@ class LLMProviderProfileRepository:
         *,
         user_id: UUID,
     ) -> list[LLMProviderProfile]:
+        """List one user's profiles with the active profile first."""
         statement = (
             select(LLMProviderProfile)
             .where(LLMProviderProfile.user_id == user_id)
@@ -79,6 +90,7 @@ class LLMProviderProfileRepository:
         *,
         user_id: UUID,
     ) -> LLMProviderProfile | None:
+        """Return the single active profile selected for this user's chats."""
         statement = select(LLMProviderProfile).where(
             LLMProviderProfile.user_id == user_id,
             LLMProviderProfile.is_active.is_(True),
@@ -102,6 +114,7 @@ class LLMProviderProfileRepository:
         last_test_status: str | None = None,
         last_test_error: str | None = None,
     ) -> LLMProviderProfile | None:
+        """Apply supplied profile fields and leave omitted fields unchanged."""
         profile = self.get_by_id(
             profile_id=profile_id,
             user_id=user_id,
@@ -150,6 +163,7 @@ class LLMProviderProfileRepository:
         profile_id: UUID,
         user_id: UUID,
     ) -> bool:
+        """Delete an owned profile and report whether it existed."""
         profile = self.get_by_id(
             profile_id=profile_id,
             user_id=user_id,
@@ -169,6 +183,7 @@ class LLMProviderProfileRepository:
         profile_id: UUID,
         user_id: UUID,
     ) -> LLMProviderProfile | None:
+        """Deactivate the user's old profile and activate the requested one."""
         profile = self.get_by_id(
             profile_id=profile_id,
             user_id=user_id,
@@ -206,7 +221,7 @@ class LLMProviderProfileRepository:
         status: str,
         error: str | None,
     ) -> LLMProviderProfile | None:
-        """Persist the latest safe, user-visible connection test status."""
+        """Save the latest test time, result, and safe user-visible error."""
         profile = self.get_by_id(
             profile_id=profile_id,
             user_id=user_id,
@@ -227,7 +242,7 @@ class LLMProviderProfileRepository:
         user_id: UUID,
         deactivate: bool,
     ) -> LLMProviderProfile | None:
-        """Clear stale test state after connection settings change."""
+        """Clear an outdated test result after connection settings change."""
         profile = self.get_by_id(
             profile_id=profile_id,
             user_id=user_id,

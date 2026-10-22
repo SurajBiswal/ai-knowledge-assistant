@@ -1,13 +1,22 @@
+"""Small Gemini helpers retained for direct generation and chat titles.
+
+The active LangGraph agent obtains its model from ``LLMProviderFactory`` and
+does not use this module for normal answers. ChatService still calls
+``generate_conversation_title`` when a new conversation receives its first text.
+"""
+
 from app.core.config import settings
 from google import genai
 
-# Initialize the Gemini client (replaces genai.configure() + GenerativeModel())
+# Shared legacy client built from the application-level Gemini key.
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
+# Model used only by the helper functions in this module.
 MODEL_NAME = "gemini-2.5-flash"
 
-# This function takes a prompt string, sends it to the Gemini AI model, and returns the generated response text.
+# Send one prompt directly to the legacy Gemini client and return its text.
 def generate_response(prompt: str) -> str:
+    """Return Gemini's complete text response for ``prompt``."""
     response = client.models.generate_content(
         model=MODEL_NAME,
         contents=prompt,
@@ -16,8 +25,7 @@ def generate_response(prompt: str) -> str:
 
 
 def generate_stream_response(prompt: str):
-    # This function demonstrates how to generate a streaming response from the Gemini model.
-    # It yields chunks of text as they are generated, which can be used for real-time streaming in the frontend.
+    """Yield Gemini text chunks for the optional stream demonstration route."""
     stream = client.models.generate_content_stream(
         model=MODEL_NAME,
         contents=prompt,
@@ -30,6 +38,7 @@ def generate_stream_response(prompt: str):
 def generate_conversation_title(
     first_message: str,
 ) -> str:
+    """Generate a short title from the first message, with ``New Chat`` fallback."""
     prompt = f"""
 Generate a short conversation title.
 

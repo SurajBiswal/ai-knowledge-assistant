@@ -1,3 +1,9 @@
+"""Database operations for User records.
+
+AuthService uses this repository during registration and login. The JWT
+dependency also uses it to load the current user from the token's user ID.
+"""
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -6,11 +12,13 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 
 class UserRepository:
+    """Create and find users without exposing SQL queries to the service layer."""
 
     def __init__(
         self,
         db: Session,
     ):
+        """Store the request's database session for user operations."""
         self.db = db
 
 
@@ -20,6 +28,7 @@ class UserRepository:
     email: str,
     password_hash: str,
 ) -> User:
+        """Create a user with an already-hashed password and return the record."""
         user = User(
         name=name,
         email=email,
@@ -37,6 +46,7 @@ class UserRepository:
     self,
     email: str,
 ) -> User | None:
+        """Find the account that uses this email address, or return None."""
         stmt = (
             select(User)
             .where(User.email == email)
@@ -52,6 +62,7 @@ class UserRepository:
     self,
     user_id: UUID,
 ) -> User | None:
+        """Find a user by UUID, as required by authenticated API requests."""
         stmt = (
             select(User)
             .where(User.id == user_id)

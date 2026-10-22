@@ -1,3 +1,10 @@
+"""Database operations for searchable DocumentChunk records.
+
+RAG indexing stores chunks through this repository. SemanticRetriever performs
+vector similarity searches here, while BM25Retriever loads all chunks belonging
+to one user for keyword-based ranking.
+"""
+
 from uuid import UUID
 
 from sqlalchemy import delete, select, and_
@@ -8,17 +15,20 @@ from app.models.document import Document
 
 
 class DocumentChunkRepository:
+    """Store, list, delete, search, and count indexed document chunks."""
 
     def __init__(
         self,
         db: Session,
     ):
+        """Store the SQLAlchemy session shared with the calling service."""
         self.db = db
 
     def create(
         self,
         chunk: DocumentChunk,
     ) -> DocumentChunk:
+        """Save one indexed chunk and return its refreshed database record."""
 
         self.db.add(chunk)
         self.db.commit()
@@ -30,6 +40,7 @@ class DocumentChunkRepository:
         self,
         document_id: UUID,
     ) -> list[DocumentChunk]:
+        """Return a document's chunks in their original text order."""
 
         stmt = (
             select(DocumentChunk)
@@ -45,6 +56,7 @@ class DocumentChunkRepository:
         self,
         document_id: UUID,
     ) -> None:
+        """Delete every chunk created from the selected document."""
 
         stmt = (
             delete(DocumentChunk)
@@ -77,7 +89,9 @@ class DocumentChunkRepository:
             similar to least similar.
         """
         
-        distance = DocumentChunk.embedding.cosine_distance(query_embedding) # this is the pgvector function to calculate cosine distance between two vectors
+        # pgvector calculates how far each stored vector is from the query.
+        # A smaller cosine distance means the chunk is more similar.
+        distance = DocumentChunk.embedding.cosine_distance(query_embedding)
         stmt = (
             select(DocumentChunk,
                    distance.label("cosine_distance")

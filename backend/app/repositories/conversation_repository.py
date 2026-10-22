@@ -1,3 +1,10 @@
+"""Database operations for Conversation records.
+
+ChatService calls this repository instead of writing SQL queries. Methods create,
+find, rename, list, delete, and count conversations while SQLAlchemy handles the
+actual PostgreSQL communication.
+"""
+
 from datetime import datetime
 from uuid import UUID
 
@@ -8,8 +15,10 @@ from app.models.conversation import Conversation
 
 
 class ConversationRepository:
+    """Provide conversation queries using one SQLAlchemy session."""
 
     def __init__(self, db: Session):
+        """Store the request's database session for all repository methods."""
         self.db = db
 
     def create(
@@ -18,6 +27,7 @@ class ConversationRepository:
         title: str,
         mode: str = "chat",
     ) -> Conversation:
+        """Create, commit, and return a conversation owned by ``user_id``."""
 
         conversation = Conversation(
             user_id=user_id,
@@ -35,6 +45,7 @@ class ConversationRepository:
         self,
         conversation_id: UUID,
     ) -> Conversation | None:
+        """Return the conversation with this ID, or None when it does not exist."""
 
         stmt = (
             select(Conversation)
@@ -50,6 +61,7 @@ class ConversationRepository:
         conversation_id: UUID,
         title: str,
     ) -> Conversation | None:
+        """Change a conversation title and return the updated record."""
 
         conversation = self.get_by_id(conversation_id)
 
@@ -68,6 +80,7 @@ class ConversationRepository:
         self,
         user_id: UUID,
     ) -> list[Conversation]:
+        """Return one user's conversations with the newest activity first."""
 
         stmt = (
             select(Conversation)
@@ -83,6 +96,7 @@ class ConversationRepository:
         self,
         conversation_id: UUID,
     ) -> bool:
+        """Delete a conversation by ID and report whether a record was found."""
 
         conversation = self.get_by_id(conversation_id)
 

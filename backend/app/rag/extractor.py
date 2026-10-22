@@ -1,8 +1,17 @@
+"""Extract plain text from supported uploaded file types.
+
+RAGService calls ``DocumentExtractor`` before chunking. PDF, DOCX, and TXT
+files use separate private helpers, but each public extraction returns one text
+string or raises an error when useful text cannot be read.
+"""
+
 from pathlib import Path
 from pypdf import PdfReader
 from docx import Document
 
 class DocumentExtractor:
+    """Choose the correct parser from the stored document file type."""
+
     def extract(self, file_path: str, file_type: str) -> str:
         """
         Extracts text from a document based on its file type.
@@ -32,7 +41,7 @@ class DocumentExtractor:
 
 
 
-# Extract from PDF---------------------------------------------------------------------------------
+    # Read text from every PDF page and join the non-empty page results.
     def _extract_text_from_pdf(
     self,
     file_path: str,
@@ -77,7 +86,7 @@ class DocumentExtractor:
 
 
 
-# Extract from DOCX---------------------------------------------------------------------------------
+    # Read non-empty paragraphs from a Microsoft Word document.
     def _extract_text_from_docx(
     self,
     file_path: str,
@@ -122,7 +131,7 @@ class DocumentExtractor:
         
 
 
-# Extract from TXT---------------------------------------------------------------------------------
+    # Read a UTF-8 text file directly from disk.
     def _extract_text_from_txt(
         self,
         file_path: str,

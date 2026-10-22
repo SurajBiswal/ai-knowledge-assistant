@@ -1,3 +1,10 @@
+"""Shared retrieval result and semantic vector-search implementation.
+
+``SemanticRetriever`` embeds a search query and asks
+``DocumentChunkRepository`` for nearby vectors. It returns ``RetrievedChunk``
+objects used by hybrid retrieval, reranking, context, and citation builders.
+"""
+
 from dataclasses import dataclass
 from uuid import UUID
 from typing import Any
@@ -10,14 +17,20 @@ from app.repositories.document_chunk_repository import (
 
 @dataclass(slots=True)
 class RetrievedChunk:
+    """Provider-independent representation of one retrieved document passage."""
+
+    # Source document and original chunk position identify the passage.
     document_id: UUID
     chunk_index: int
+    # Text and source details are used to build LLM context and citations.
     chunk_text: str
     metadata: dict[str, Any]
+    # Retrieval score names are kept in sync for compatibility with callers.
     score: float | None = None
     cosine_distance: float | None = None
 
     def __post_init__(self) -> None:
+        """Copy the available score name into the compatibility field."""
         if self.score is None and self.cosine_distance is not None:
             self.score = self.cosine_distance
         if self.cosine_distance is None and self.score is not None:
@@ -25,12 +38,14 @@ class RetrievedChunk:
 
 
 class SemanticRetriever:
+    """Find user-owned chunks whose embeddings are close to the query vector."""
 
     def __init__(
         self,
         repository: DocumentChunkRepository,
         embedder: GeminiEmbedder,
     ):
+        """Store the chunk repository and embedding client used by retrieval."""
         self.repository = repository
         self.embedder = embedder
 
@@ -41,6 +56,7 @@ class SemanticRetriever:
         user_id: str | None = None,
         top_k: int = 5,
     ) -> list[RetrievedChunk]:
+        """Embed ``query``/``question`` and return the closest stored chunks."""
 
         if query is None:
             query = question
@@ -48,25 +64,6 @@ class SemanticRetriever:
         if query is None:
             raise ValueError("Query or question is required.")
         
-        """
-            Retrieve the top-k document chunks that are semantically
-            similar to the supplied search query.
-
-            This retriever assumes the query has already been
-            preprocessed (for example, rewritten by the QueryRewriter).
-
-            Responsibilities:
-            - Generate a query embedding
-            - Perform vector similarity search
-            - Return RetrievedChunk objects
-
-            It does NOT:
-            - Rewrite queries
-            - Build prompts
-            - Merge retrieval results
-        """
-
-
         try:
             query_embedding = (
                 self.embedder.generate_embedding(

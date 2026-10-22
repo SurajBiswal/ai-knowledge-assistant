@@ -1,3 +1,9 @@
+"""Database operations for conversation Message records.
+
+ChatService saves user and assistant messages here, reads recent history before
+running LangGraph, and lists complete conversations for the messages API.
+"""
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -9,8 +15,10 @@ from app.models.message import Message
 from app.models.conversation import Conversation
 
 class MessageRepository:
+    """Provide message persistence and history queries for conversations."""
 
     def __init__(self, db: Session):
+        """Store the request's database session for message operations."""
         self.db = db
 
     def create(
@@ -21,6 +29,7 @@ class MessageRepository:
         token_count: int = 0,
         sources: list[dict[str, Any]] | None = None,
     ) -> Message:
+        """Save one user or assistant message and return the stored record."""
 
         message = Message(
             conversation_id=conversation_id,
@@ -40,6 +49,7 @@ class MessageRepository:
         self,
         conversation_id: UUID,
     ) -> list[Message]:
+        """Return all messages in a conversation from oldest to newest."""
 
         stmt = (
             select(Message)
@@ -58,6 +68,7 @@ class MessageRepository:
         conversation_id: UUID,
         limit: int = 10,
     ) -> list[Message]:
+        """Return the newest ``limit`` messages in normal reading order."""
 
         stmt = (
             select(Message)

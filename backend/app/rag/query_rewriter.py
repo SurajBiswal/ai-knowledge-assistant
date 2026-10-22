@@ -1,8 +1,16 @@
+"""Rewrite user questions into focused document-search queries.
+
+``HybridRetriever`` uses this helper once before semantic and BM25 retrieval.
+If Gemini cannot rewrite the question, the original text is returned so search
+can continue instead of failing the whole chat request.
+"""
+
 from google import genai
 
 from app.core.config import settings
 
 
+# Instructions tell Gemini to improve retrieval text without answering the user.
 QUERY_REWRITE_PROMPT = """
 You are an AI assistant that rewrites user questions into optimized semantic search
 queries for a Retrieval-Augmented Generation (RAG) system.
@@ -27,8 +35,10 @@ User Question:
 
 
 class QueryRewriter:
+    """Use Gemini to produce search-focused text with a safe fallback."""
 
     def __init__(self):
+        """Create the Gemini client used only for query rewriting."""
         self.client = genai.Client(
             api_key=settings.GEMINI_API_KEY
         )
@@ -37,6 +47,7 @@ class QueryRewriter:
     self,
     question: str,
     ) -> str:
+        """Return a rewritten query, or the original question if rewriting fails."""
 
         question = question.strip()
 
